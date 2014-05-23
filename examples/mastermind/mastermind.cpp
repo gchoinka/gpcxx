@@ -63,10 +63,19 @@ template<size_t nSlots_, size_t nColours_>
 class MasterMindRow 
 {
 public:
+    typedef size_t color_t;
     static size_t const nSlots         = nSlots_;
     static size_t const nColours       = nColours_;
+    static color_t const defaultColor   = 0;
     
-    void color(size_t pos, size_t colorId)
+    MasterMindRow()
+    {
+        for(size_t i = 0; i < nSlots; ++i)
+            color(i, defaultColor);
+        
+    }
+    
+    void color(size_t pos, color_t colorId)
     {
         BOOST_VERIFY( pos < nSlots );
         BOOST_VERIFY( colorId < nColours );
@@ -78,11 +87,12 @@ public:
         bitrep.set( posOfColor );
     }
    
-    size_t color(size_t pos) const 
+    color_t color(size_t pos) const 
     {
         for(int i = 0; i < nColours_; ++i)
             if(bitrep.test(nSlots_ * 2 + (pos * nColours_) + i))
                 return i;
+        BOOST_VERIFY( false );
         return nColours; //no color ist set
     }
     
@@ -130,7 +140,8 @@ public:
         for(int i = 0; i < nSlots_; ++i)
         {
             size_t colorId = other.color(i);
-            if(hasColor(other.color(i)))
+            //if(hasColor(other.color(i)))
+            if(other.hasColor(color(i)))
                 colorHitsSet.set(i);
         }
         size_t colorHits = colorHitsSet.count() - colorPosHits;
@@ -171,7 +182,7 @@ private:
             bitrep.set(nSlots_ * 1 + i);
     }
     
-    size_t countByColor(size_t colorId) const
+    size_t countByColor(color_t colorId) const
     {
         size_t colorCount = 0;
         for(size_t i = 0; i < nSlots; ++i)
@@ -182,7 +193,7 @@ private:
         return colorCount;
     }
     
-    bool hasColor(size_t colorId) const 
+    bool hasColor(color_t colorId) const 
     {
         return countByColor(colorId) != 0;
     }
@@ -215,7 +226,7 @@ int main( int argc , char *argv[] )
 
 
 
-    fillMMRowWithColor(colorSecret, rd);
+    //fillMMRowWithColor(colorSecret, rd);
     fillMMRowWithColor(colorTest, rd);
     
     colorTest.compareTo(colorSecret);
