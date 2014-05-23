@@ -40,7 +40,7 @@
 #include <fstream>
 #include <bitset>
 #include <boost/assert.hpp>
-
+#include <initializer_list>
 char const tab = '\t';
 char const newl = '\n';
 
@@ -75,6 +75,16 @@ public:
         
     }
     
+    MasterMindRow(std::initializer_list<color_t> entries)
+    {
+        BOOST_VERIFY( nSlots_ == entries.size() );
+        size_t index = 0;
+        for(color_t c : entries )
+            color(index++, c);
+            
+    }
+    
+    
     void color(size_t pos, color_t colorId)
     {
         BOOST_VERIFY( pos < nSlots );
@@ -102,8 +112,6 @@ public:
     }
     
         
-       
-       
     std::string toStringFormated() const 
     {
         std::string s;
@@ -129,22 +137,28 @@ public:
     void compareTo(const MasterMindRow<nSlots_, nColours_> & other)
     {
         size_t colorPosHits = 0;
-        for(int i = 0; i < nSlots_; ++i)
+        for(size_t i = 0; i < nSlots_; ++i)
         {
             if(color(i) == other.color(i))
                 colorPosHits++;
         }
         
-
-        std::bitset<nSlots> colorHitsSet;
-        for(int i = 0; i < nSlots_; ++i)
+        size_t countColors[nColours] = {};
+        size_t countColorsOther[nColours] = {};
+        for(size_t i = 0; i < nSlots; ++i)
         {
-            size_t colorId = other.color(i);
-            //if(hasColor(other.color(i)))
-            if(other.hasColor(color(i)))
-                colorHitsSet.set(i);
+            countColors[color(i)]++;
+            countColorsOther[other.color(i)]++;
         }
-        size_t colorHits = colorHitsSet.count() - colorPosHits;
+              
+        size_t colorHits = 0;
+        for(size_t i = 0; i < nColours; ++i)
+        {
+            colorHits += std::min(countColors[i], countColorsOther[i]);
+        }
+            
+       
+        colorHits -= colorPosHits;
         
         setHits(colorPosHits, colorHits);
     }
@@ -152,7 +166,7 @@ public:
     size_t posAndColorHits() const
     {
         size_t c = 0;
-        for(int i = (nSlots*0); i < (nSlots*1); ++i)
+        for(size_t i = (nSlots*0); i < (nSlots*1); ++i)
             c += bitrep.test(i) ? 1 : 0;     
         return c;
     }
@@ -160,7 +174,7 @@ public:
     size_t colorHits() const
     {
         size_t c = 0;
-        for(int i = (nSlots*1); i < (nSlots*2); ++i)
+        for(size_t i = (nSlots*1); i < (nSlots*2); ++i)
             c += bitrep.test(i) ? 1 : 0;    
         return c;
     }
@@ -172,13 +186,13 @@ private:
         BOOST_VERIFY( colorHit <= nSlots );
         BOOST_VERIFY( ( colorHit + posAndColorHit ) <= nSlots );
         
-        for(int i = 0; i < (nSlots*2); ++i)
+        for(size_t i = 0; i < (nSlots*2); ++i)
             bitrep.reset(i);
         
-        for(int i = 0; i < posAndColorHit; ++i)
+        for(size_t i = 0; i < posAndColorHit; ++i)
             bitrep.set(nSlots_ * 0 + i);
         
-        for(int i = 0; i < colorHit; ++i)
+        for(size_t i = 0; i < colorHit; ++i)
             bitrep.set(nSlots_ * 1 + i);
     }
     
@@ -191,6 +205,17 @@ private:
                 colorCount++;
         }
         return colorCount;
+    }
+    
+    size_t searchColor(color_t colorId, size_t startPos = 0) const
+    {
+        BOOST_VERIFY( startPos < nSlots );
+        for(size_t i = startPos; i < nSlots; ++i)
+        {
+            if(bitrep.test((nSlots_ * 2) + (i * nColours_) +  colorId))
+                return i;
+        }
+        return nSlots;
     }
     
     bool hasColor(color_t colorId) const 
@@ -214,19 +239,49 @@ void fillMMRowWithColor(MMRowT & mMRow, RandGenT & randomGen)
 }
 
 
+bool test()
+{
+    size_t const nSlots = 4;
+    size_t const nColours = 6;
+    {
+        MasterMindRow< nSlots, nColours > colorSecret{0,0,0,0};
+        MasterMindRow< nSlots, nColours > colorTest{0,0,0,0};   
+        colorSecret.compareTo(colorTest);
+        BOOST_VERIFY(colorSecret.colorHits() == 0);
+        BOOST_VERIFY(colorSecret.posAndColorHits() == 4);
+    }
+    {
+        MasterMindRow< nSlots, nColours > colorSecret{0,0,0,0};
+        MasterMindRow< nSlots, nColours > colorTest  {1,1,0,0};   
+        colorSecret.compareTo(colorTest);
+        BOOST_VERIFY(colorSecret.colorHits() == 0);
+        BOOST_VERIFY(colorSecret.posAndColorHits() == 2);
+    }
+    {
+        MasterMindRow< nSlots, nColours > colorSecret{0,0,0,4};
+        MasterMindRow< nSlots, nColours > colorTest  {1,1,3,0};   
+        colorSecret.compareTo(colorTest);
+        BOOST_VERIFY(colorSecret.colorHits() == 1);
+        BOOST_VERIFY(colorSecret.posAndColorHits() == 0);
+    }
+
+}
+
+
 
 int main( int argc , char *argv[] )
 {
+    test();
     int const seed = 100;
     size_t const nSlots = 4;
-    size_t const nColours = 6;
+    size_t const nColours = 12;
     boost::rand48 rd (seed);
     MasterMindRow< nSlots, nColours > colorSecret;
     MasterMindRow< nSlots, nColours > colorTest;   
 
+    MasterMindRow< nSlots, nColours > colorTest2{0,1,2,3};   
 
-
-    //fillMMRowWithColor(colorSecret, rd);
+    fillMMRowWithColor(colorSecret, rd);
     fillMMRowWithColor(colorTest, rd);
     
     colorTest.compareTo(colorSecret);
@@ -235,6 +290,11 @@ int main( int argc , char *argv[] )
         tab << colorTest.colorHits() << newl;   
     std::cout << "secr " << colorSecret.toStringFormated() << 
         tab << colorSecret.posAndColorHits() << 
-        tab << colorSecret.colorHits() << newl;  
+        tab << colorSecret.colorHits() << newl; 
+    std::cout << "secr " << colorTest2.toStringFormated() << 
+        tab << colorTest2.posAndColorHits() << 
+        tab << colorTest2.colorHits() << newl;  
+        
+        
 
 }
