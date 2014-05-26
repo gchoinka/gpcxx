@@ -45,13 +45,18 @@ char const tab = '\t';
 char const newl = '\n';
 
 
+size_t const nSlots = 4;
+size_t const nColours = 6;
 
-typedef double value_type;
-typedef gpcxx::regression_training_data< value_type , 3 > trainings_data_type;
+size_t const terminalsNeeded = 2 * nSlots + nSlots * nColours;
+typedef bool value_type;
+typedef gpcxx::regression_training_data< value_type , terminalsNeeded > trainings_data_type;
+
 typedef std::mt19937 rng_type ;
-typedef std::array< value_type , 3 > eval_context_type;
-typedef std::vector< value_type > fitness_type;
-typedef gpcxx::basic_named_intrusive_node< double , eval_context_type > node_type;
+typedef std::bitset< terminalsNeeded > eval_context_type;
+typedef std::bitset< terminalsNeeded > fitness_type;
+
+typedef gpcxx::basic_named_intrusive_node< value_type , eval_context_type > node_type;
 typedef gpcxx::intrusive_tree< node_type > tree_type;
 typedef std::vector< tree_type > population_type;
 
@@ -239,10 +244,67 @@ void fillMMRowWithColor(MMRowT & mMRow, RandGenT & randomGen)
 }
 
 
+bool test();
+
+template< typename F >
+void generate_test_data( trainings_data_type &data, double rmin , double rmax , double stepsize , F f )
+{
+    data.x[0].clear(); data.x[1].clear(); data.x[2].clear(); data.y.clear();
+    
+    for( double xx = rmin ; xx <= rmax ; xx += stepsize )
+    {
+        for( double yy = rmin ; yy <= rmax ; yy += stepsize )
+        {
+            for( double zz = rmin ; zz <= rmax ; zz += stepsize )
+            {
+                data.x[0].push_back( xx );
+                data.x[1].push_back( yy );
+                data.x[2].push_back( zz );
+                data.y.push_back( f( xx , yy , zz ) );
+            }
+        }
+    }
+}
+
+
+int main( int argc , char *argv[] )
+{
+    test();
+    rng_type rng;
+    
+    trainings_data_type c;
+    generate_test_data( c , -5.0 , 5.0 + 0.1 , 0.4 , []( double x1 , double x2 , double x3 ) {
+                        return  1.0 / ( 1.0 + pow( x1 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x2 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x3 , -4.0 ) ); } );
+    gpcxx::normalize( c.y );
+
+  
+}
+
+
 bool test()
 {
     size_t const nSlots = 4;
     size_t const nColours = 6;
+    int const seed = 100;
+    boost::rand48 rd (seed);
+    MasterMindRow< nSlots, nColours > colorSecret;
+    MasterMindRow< nSlots, nColours > colorTest;   
+    MasterMindRow< nSlots, nColours > colorTest2{0,1,2,3};   
+
+    fillMMRowWithColor(colorSecret, rd);
+    fillMMRowWithColor(colorTest, rd);
+    
+    colorTest.compareTo(colorSecret);
+    std::cout << "test " << colorTest.toStringFormated()   << 
+        tab << colorTest.posAndColorHits() << 
+        tab << colorTest.colorHits() << newl;   
+    std::cout << "secr " << colorSecret.toStringFormated() << 
+        tab << colorSecret.posAndColorHits() << 
+        tab << colorSecret.colorHits() << newl; 
+    std::cout << "secr " << colorTest2.toStringFormated() << 
+        tab << colorTest2.posAndColorHits() << 
+        tab << colorTest2.colorHits() << newl;
+        
     {
         MasterMindRow< nSlots, nColours > colorSecret{0,0,0,0};
         MasterMindRow< nSlots, nColours > colorTest{0,0,0,0};   
@@ -264,37 +326,5 @@ bool test()
         BOOST_VERIFY(colorSecret.colorHits() == 1);
         BOOST_VERIFY(colorSecret.posAndColorHits() == 0);
     }
-
-}
-
-
-
-int main( int argc , char *argv[] )
-{
-    test();
-    int const seed = 100;
-    size_t const nSlots = 4;
-    size_t const nColours = 12;
-    boost::rand48 rd (seed);
-    MasterMindRow< nSlots, nColours > colorSecret;
-    MasterMindRow< nSlots, nColours > colorTest;   
-
-    MasterMindRow< nSlots, nColours > colorTest2{0,1,2,3};   
-
-    fillMMRowWithColor(colorSecret, rd);
-    fillMMRowWithColor(colorTest, rd);
-    
-    colorTest.compareTo(colorSecret);
-    std::cout << "test " << colorTest.toStringFormated()   << 
-        tab << colorTest.posAndColorHits() << 
-        tab << colorTest.colorHits() << newl;   
-    std::cout << "secr " << colorSecret.toStringFormated() << 
-        tab << colorSecret.posAndColorHits() << 
-        tab << colorSecret.colorHits() << newl; 
-    std::cout << "secr " << colorTest2.toStringFormated() << 
-        tab << colorTest2.posAndColorHits() << 
-        tab << colorTest2.colorHits() << newl;  
-        
-        
 
 }
