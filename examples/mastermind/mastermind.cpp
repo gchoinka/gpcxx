@@ -69,11 +69,15 @@ class MasterMindRow
 {
 public:
     typedef size_t color_t;
+    typedef bool dataType;
     static size_t const nSlots         = nSlots_;
     static size_t const nColours       = nColours_;
+    static size_t const dataSize = nSlots_ * 2 + nSlots_ * nColours_;
     static color_t const defaultColor   = 0;
     
+
     MasterMindRow()
+        :data_(dataSize)
     {
         for(size_t i = 0; i < nSlots; ++i)
             color(i, defaultColor);
@@ -81,6 +85,7 @@ public:
     }
     
     MasterMindRow(std::initializer_list<color_t> entries)
+        :data_(dataSize)
     {
         BOOST_VERIFY( nSlots_ == entries.size() );
         size_t index = 0;
@@ -96,41 +101,35 @@ public:
         BOOST_VERIFY( colorId < nColours );
         
         for(int i = 0; i < nColours_; ++i)
-            bitrep.reset(nSlots_ * 2 + (pos * nColours_) + i);
+            data_[nSlots_ * 2 + (pos * nColours_) + i] = false;
         
         size_t const posOfColor = (nSlots_ * 2) + (pos * nColours_) +  colorId;
-        bitrep.set( posOfColor );
+        data_[ posOfColor ] = true;
     }
    
     color_t color(size_t pos) const 
     {
         for(int i = 0; i < nColours_; ++i)
-            if(bitrep.test(nSlots_ * 2 + (pos * nColours_) + i))
+            if(data_[ nSlots_ * 2 + (pos * nColours_) + i ])
                 return i;
         BOOST_VERIFY( false );
         return nColours; //no color ist set
     }
-    
-    std::string toString() const 
-    {
-        return bitrep.to_string();
-    }
-    
         
     std::string toStringFormated() const 
     {
         std::string s;
         for(int i = 0; i < nSlots; ++i)
-            s.append(bitrep.test(i) ? "1" : "0");     
+            s.append(data_[ i ] ? "1" : "0");     
         s.append("'");
         for(int i = nSlots; i < (nSlots*2); ++i)
-            s.append(bitrep.test(i) ? "1" : "0");  
+            s.append(data_[ i ] ? "1" : "0");  
         
         for(int i = (nSlots*2); i < (nSlots_ * 2 + nSlots_ * nColours_ ); ++i)
         {
             if(((i-(nSlots_ * 2))%nColours_) == 0)
                 s.append("'");
-            s.append(bitrep.test(i) ? "1" : "0");  
+            s.append(data_[ i ] ? "1" : "0");  
 
         }
         
@@ -172,7 +171,7 @@ public:
     {
         size_t c = 0;
         for(size_t i = (nSlots*0); i < (nSlots*1); ++i)
-            c += bitrep.test(i) ? 1 : 0;     
+            c += data_[i] ? 1 : 0;     
         return c;
     }
     
@@ -180,7 +179,7 @@ public:
     {
         size_t c = 0;
         for(size_t i = (nSlots*1); i < (nSlots*2); ++i)
-            c += bitrep.test(i) ? 1 : 0;    
+            c += data_[i] ? 1 : 0;    
         return c;
     }
 private:
@@ -192,13 +191,13 @@ private:
         BOOST_VERIFY( ( colorHit + posAndColorHit ) <= nSlots );
         
         for(size_t i = 0; i < (nSlots*2); ++i)
-            bitrep.reset(i);
+            data_[ i ] = false;
         
         for(size_t i = 0; i < posAndColorHit; ++i)
-            bitrep.set(nSlots_ * 0 + i);
+            data_[ nSlots_ * 0 + i] = true;
         
         for(size_t i = 0; i < colorHit; ++i)
-            bitrep.set(nSlots_ * 1 + i);
+            data_[ nSlots_ * 1 + i ] = true;
     }
     
     size_t countByColor(color_t colorId) const
@@ -206,7 +205,7 @@ private:
         size_t colorCount = 0;
         for(size_t i = 0; i < nSlots; ++i)
         {
-            if(bitrep.test((nSlots_ * 2) + (i * nColours_) +  colorId))
+            if( data_[ (nSlots_ * 2) + (i * nColours_) +  colorId ] )
                 colorCount++;
         }
         return colorCount;
@@ -217,7 +216,7 @@ private:
         BOOST_VERIFY( startPos < nSlots );
         for(size_t i = startPos; i < nSlots; ++i)
         {
-            if(bitrep.test((nSlots_ * 2) + (i * nColours_) +  colorId))
+            if( data_[ (nSlots_ * 2) + (i * nColours_) +  colorId ] )
                 return i;
         }
         return nSlots;
@@ -229,7 +228,7 @@ private:
     }
     
 private:
-    std::bitset< nSlots_ * 2 + nSlots_ * nColours_ > bitrep;
+    std::vector< dataType > data_;
 };
     
     
@@ -241,41 +240,41 @@ void fillMMRowWithColor(MMRowT & mMRow, RandGenT & randomGen)
     {
         mMRow.color(i, randomGen() % MMRowT::nColours);
     }
-}
+} 
 
 
 bool test();
 
-template< typename F >
-void generate_test_data( trainings_data_type &data, double rmin , double rmax , double stepsize , F f )
-{
-    data.x[0].clear(); data.x[1].clear(); data.x[2].clear(); data.y.clear();
-    
-    for( double xx = rmin ; xx <= rmax ; xx += stepsize )
-    {
-        for( double yy = rmin ; yy <= rmax ; yy += stepsize )
-        {
-            for( double zz = rmin ; zz <= rmax ; zz += stepsize )
-            {
-                data.x[0].push_back( xx );
-                data.x[1].push_back( yy );
-                data.x[2].push_back( zz );
-                data.y.push_back( f( xx , yy , zz ) );
-            }
-        }
-    }
-}
+// template< typename F >
+// void generate_test_data( trainings_data_type &data, double rmin , double rmax , double stepsize , F f )
+// {
+//     data.x[0].clear(); data.x[1].clear(); data.x[2].clear(); data.y.clear();
+//     
+//     for( double xx = rmin ; xx <= rmax ; xx += stepsize )
+//     {
+//         for( double yy = rmin ; yy <= rmax ; yy += stepsize )
+//         {
+//             for( double zz = rmin ; zz <= rmax ; zz += stepsize )
+//             {
+//                 data.x[0].push_back( xx );
+//                 data.x[1].push_back( yy );
+//                 data.x[2].push_back( zz );
+//                 data.y.push_back( f( xx , yy , zz ) );
+//             }
+//         }
+//     }
+// }
 
 
 int main( int argc , char *argv[] )
 {
     test();
-    rng_type rng;
-    
-    trainings_data_type c;
-    generate_test_data( c , -5.0 , 5.0 + 0.1 , 0.4 , []( double x1 , double x2 , double x3 ) {
-                        return  1.0 / ( 1.0 + pow( x1 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x2 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x3 , -4.0 ) ); } );
-    gpcxx::normalize( c.y );
+//     rng_type rng;
+//     
+//     trainings_data_type c;
+//     generate_test_data( c , -5.0 , 5.0 + 0.1 , 0.4 , []( double x1 , double x2 , double x3 ) {
+//                         return  1.0 / ( 1.0 + pow( x1 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x2 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x3 , -4.0 ) ); } );
+//     gpcxx::normalize( c.y );
 
   
 }
