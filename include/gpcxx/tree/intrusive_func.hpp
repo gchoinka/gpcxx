@@ -74,6 +74,22 @@ struct array_terminal
     }
 };
 
+
+struct dyn_array_terminal
+{
+    dyn_array_terminal(size_t index_arg)
+    :index(index_arg)
+    {
+    }
+    size_t const  index;
+    template< typename Context , typename Node >
+    typename Node::result_type operator()( Context const& c , Node const& node ) const
+    {
+        typedef typename Node::result_type result_type;
+        return static_cast< result_type >( c[index] );
+    }
+};
+
 template< int V >
 struct constant_terminal
 {

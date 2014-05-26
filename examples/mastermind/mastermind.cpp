@@ -40,6 +40,7 @@
 #include <fstream>
 #include <bitset>
 #include <boost/assert.hpp>
+#include <boost/format.hpp>
 #include <initializer_list>
 char const tab = '\t';
 char const newl = '\n';
@@ -49,18 +50,16 @@ size_t const nSlots = 4;
 size_t const nColours = 6;
 
 size_t const terminalsNeeded = 2 * nSlots + nSlots * nColours;
+int posColorHitFactor = 8;
+
 typedef bool value_type;
 typedef gpcxx::regression_training_data< value_type , terminalsNeeded > trainings_data_type;
-
 typedef std::mt19937 rng_type ;
-typedef std::bitset< terminalsNeeded > eval_context_type;
-typedef std::bitset< terminalsNeeded > fitness_type;
-
-typedef gpcxx::basic_named_intrusive_node< value_type , eval_context_type > node_type;
+typedef std::array< value_type , terminalsNeeded > eval_context_type;
+typedef std::vector< value_type > fitness_type;
+typedef gpcxx::basic_named_intrusive_node< double , eval_context_type > node_type;
 typedef gpcxx::intrusive_tree< node_type > tree_type;
 typedef std::vector< tree_type > population_type;
-
-
 
 
 
@@ -69,7 +68,7 @@ class MasterMindRow
 {
 public:
     typedef size_t color_t;
-    typedef bool dataType;
+    typedef char dataType;
     static size_t const nSlots         = nSlots_;
     static size_t const nColours       = nColours_;
     static size_t const dataSize = nSlots_ * 2 + nSlots_ * nColours_;
@@ -182,6 +181,11 @@ public:
             c += data_[i] ? 1 : 0;    
         return c;
     }
+    
+    std::vector< dataType > const  & data() const
+    {
+        return data_;
+    }
 private:
     
     void setHits(size_t posAndColorHit, size_t colorHit)
@@ -227,6 +231,8 @@ private:
         return countByColor(colorId) != 0;
     }
     
+
+    
 private:
     std::vector< dataType > data_;
 };
@@ -245,38 +251,63 @@ void fillMMRowWithColor(MMRowT & mMRow, RandGenT & randomGen)
 
 bool test();
 
-// template< typename F >
-// void generate_test_data( trainings_data_type &data, double rmin , double rmax , double stepsize , F f )
-// {
-//     data.x[0].clear(); data.x[1].clear(); data.x[2].clear(); data.y.clear();
-//     
-//     for( double xx = rmin ; xx <= rmax ; xx += stepsize )
-//     {
-//         for( double yy = rmin ; yy <= rmax ; yy += stepsize )
-//         {
-//             for( double zz = rmin ; zz <= rmax ; zz += stepsize )
-//             {
-//                 data.x[0].push_back( xx );
-//                 data.x[1].push_back( yy );
-//                 data.x[2].push_back( zz );
-//                 data.y.push_back( f( xx , yy , zz ) );
-//             }
-//         }
-//     }
-// }
+template< typename rnd_type, typename mmrow_type>
+void generate_test_data( trainings_data_type &data, size_t makeN, mmrow_type secred_mmrow, rnd_type random_generator)
+{
+    for(size_t i = 0; i < mmrow_type::dataSize; ++i)
+        data.x[i].clear();
+    data.y.clear();
+    
+    for(size_t i = 0; i < makeN; ++i)
+    {
+        mmrow_type rnd_mmrow;
+        fillMMRowWithColor(rnd_mmrow, random_generator);
+        rnd_mmrow.compareTo( secred_mmrow );
+        for(size_t k = 0; k < rnd_mmrow.data().size(); ++k)
+        {
+            data.x[k].push_back(rnd_mmrow.data()[k]);
+            data.y.push_back( rnd_mmrow.posAndColorHits() * posColorHitFactor + rnd_mmrow.colorHits() );
+        }
+    }
+}
 
 
 int main( int argc , char *argv[] )
 {
     test();
-//     rng_type rng;
-//     
-//     trainings_data_type c;
-//     generate_test_data( c , -5.0 , 5.0 + 0.1 , 0.4 , []( double x1 , double x2 , double x3 ) {
-//                         return  1.0 / ( 1.0 + pow( x1 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x2 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x3 , -4.0 ) ); } );
-//     gpcxx::normalize( c.y );
+    size_t const initPopulationSize = 10000;
+    size_t const nSlots = 4;
+    size_t const nColours = 6;
+    int const seed = 100;
+    boost::rand48 rnd (seed);
+    MasterMindRow< nSlots, nColours > tosearch{0,1,2,3};   
+    
+    trainings_data_type c;
+    generate_test_data( c , initPopulationSize,  tosearch, rnd);
 
-  
+    typedef gpcxx::static_pipeline< population_type , fitness_type , rng_type > evolver_type;
+    
+    std::vector< node_type > terminals;
+    for(size_t i = 0; i < tosearch.data().size(); ++i)
+    {
+        auto currentSlotId = (i / nColours);
+//         auto currentColorBit = i - ( i / nColours );
+//         auto name = boost::str( boost::format("s%02dc%02d") % currentSlotId % currentColorBit).c_str(); 
+        auto name = boost::str( boost::format("s%02dc") % currentSlotId).c_str(); 
+        terminals.push_back( node_type { gpcxx::dyn_array_terminal{ i } , name  } );
+        std::cout << name << newl;
+    }
+    
+//     
+//     gpcxx::uniform_symbol< node_type > terminal_gen 
+//     {
+//         std::vector< node_type >
+//         {
+//             node_type { gpcxx::array_terminal< 0 >{} , "x" } ,       
+//             node_type { gpcxx::array_terminal< 1 >{} , "y" } ,
+//             node_type { gpcxx::array_terminal< 2 >{} , "z" }   
+//         } 
+//     };
 }
 
 
