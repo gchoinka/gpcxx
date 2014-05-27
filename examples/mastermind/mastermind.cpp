@@ -46,6 +46,9 @@ char const tab = '\t';
 char const newl = '\n';
 
 
+using boost::format;
+using boost::str;
+
 size_t const nSlots = 4;
 size_t const nColours = 6;
 
@@ -62,6 +65,17 @@ typedef gpcxx::intrusive_tree< node_type > tree_type;
 typedef std::vector< tree_type > population_type;
 
 
+
+struct evaluator
+{
+    typedef eval_context_type context_type;
+    typedef double value_type;
+    
+    value_type operator()( tree_type const& t , context_type const& c ) const
+    {
+        return t.root()->eval( c );
+    }
+};
 
 template<size_t nSlots_, size_t nColours_>
 class MasterMindRow 
@@ -275,11 +289,11 @@ void generate_test_data( trainings_data_type &data, size_t makeN, mmrow_type sec
 int main( int argc , char *argv[] )
 {
     test();
-    size_t const initPopulationSize = 10000;
+    size_t const initPopulationSize = 128;
     size_t const nSlots = 4;
     size_t const nColours = 6;
     int const seed = 100;
-    boost::rand48 rnd (seed);
+    rng_type rnd (seed);
     MasterMindRow< nSlots, nColours > tosearch{0,1,2,3};   
     
     trainings_data_type c;
@@ -288,26 +302,75 @@ int main( int argc , char *argv[] )
     typedef gpcxx::static_pipeline< population_type , fitness_type , rng_type > evolver_type;
     
     std::vector< node_type > terminals;
+    std::vector< std::string > terminal_names;
+    for(size_t i = nSlots*0; i < nSlots*1; ++i)
+        terminal_names.emplace_back( str( format("b%02d") % i ) );
+    
+    for(size_t i = nSlots*1; i < nSlots*2; ++i)
+        terminal_names.emplace_back( str( format("w%02d") % (i%nSlots) ) );
+    
+    for(size_t i = nSlots*2; i < (nSlots*2+nSlots*nColours); ++i)
+        terminal_names.emplace_back( str( format("s%02dc%02d") % ((i-nSlots*2)/nColours) % ((i-nSlots*2)%nColours) ) );
+    
+    
     for(size_t i = 0; i < tosearch.data().size(); ++i)
     {
-        auto currentSlotId = (i / nColours);
-//         auto currentColorBit = i - ( i / nColours );
-//         auto name = boost::str( boost::format("s%02dc%02d") % currentSlotId % currentColorBit).c_str(); 
-        auto name = boost::str( boost::format("s%02dc") % currentSlotId).c_str(); 
-        terminals.push_back( node_type { gpcxx::dyn_array_terminal{ i } , name  } );
-        std::cout << name << newl;
+        terminals.push_back( node_type { gpcxx::dyn_array_terminal{ i } ,  terminal_names[i] } );
+        std::cout << terminal_names[i] << newl;
     }
     
-//     
-//     gpcxx::uniform_symbol< node_type > terminal_gen 
-//     {
-//         std::vector< node_type >
-//         {
-//             node_type { gpcxx::array_terminal< 0 >{} , "x" } ,       
-//             node_type { gpcxx::array_terminal< 1 >{} , "y" } ,
-//             node_type { gpcxx::array_terminal< 2 >{} , "z" }   
-//         } 
-//     };
+    
+    gpcxx::uniform_symbol< node_type > terminal_gen { terminals };
+    
+    gpcxx::uniform_symbol< node_type > binary_gen { std::vector< node_type >{
+        node_type { gpcxx::binary_or_func{} ,  "||" } ,
+        node_type { gpcxx::binary_and_func{} , "&&" }  }       
+    };
+    gpcxx::uniform_symbol< node_type > unary_gen { std::vector< node_type >{
+        node_type { gpcxx::binary_not_func{} , "!" }  }
+    };  
+    
+    size_t population_size = 128;
+    size_t generation_size = 20;
+    double number_elite = 1;
+    double mutation_rate = 0.0;
+    double crossover_rate = 0.6;
+    double reproduction_rate = 0.3;
+    size_t min_tree_height = 1; 
+    size_t max_tree_height = 64;
+    size_t tournament_size = 15;
+    
+    std::array< double , 3 > weights = {{ double( terminal_gen.num_symbols() ) ,
+                                          double( unary_gen.num_symbols() ) ,
+                                          double( binary_gen.num_symbols() ) }};
+    
+    auto tree_generator = gpcxx::make_basic_generate_strategy( rnd , terminal_gen , unary_gen , binary_gen , max_tree_height , max_tree_height , weights );
+    evolver_type evolver( number_elite , mutation_rate , crossover_rate , reproduction_rate , rnd );
+    std::vector< double > fitness( population_size , 0.0 );
+    std::vector< tree_type > population( population_size );
+    
+    evolver.mutation_function() = gpcxx::make_mutation(
+        gpcxx::make_simple_mutation_strategy( rnd , terminal_gen , unary_gen , binary_gen ) ,
+                                                       gpcxx::make_tournament_selector( rnd , tournament_size ) );
+    evolver.crossover_function() = gpcxx::make_crossover( 
+    gpcxx::make_one_point_crossover_strategy( rnd , max_tree_height ) ,
+                                                         gpcxx::make_tournament_selector( rnd , tournament_size ) );
+    evolver.reproduction_function() = gpcxx::make_reproduce( gpcxx::make_tournament_selector( rnd , tournament_size ) );
+    
+    gpcxx::timer timer;
+    auto fitness_f = gpcxx::make_regression_fitness( evaluator() );
+    
+    // initialize population with random trees and evaluate fitness
+    timer.restart();
+    for( size_t i=0 ; i<population.size() ; ++i )
+    {
+        tree_generator( population[i] );
+        fitness[i] = fitness_f( population[i] , c );
+    }
+    std::cout << gpcxx::indent( 0 ) << "Generation time " << timer.seconds() << std::endl;
+    std::cout << gpcxx::indent( 1 ) << "Best individuals" << std::endl << gpcxx::best_individuals( population , fitness , 1 , 10 ) << std::endl;
+    std::cout << gpcxx::indent( 1 ) << "Statistics : " << gpcxx::calc_population_statistics( population ) << std::endl;
+    std::cout << gpcxx::indent( 1 ) << std::endl << std::endl;
 }
 
 
