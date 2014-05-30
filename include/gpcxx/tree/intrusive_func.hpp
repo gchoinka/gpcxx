@@ -52,15 +52,12 @@ UNARY_FUNC( sin_func , std::sin );
 UNARY_FUNC( cos_func , std::cos );
 UNARY_FUNC( exp_func , std::exp );
 UNARY_FUNC( log_func , detail::gpcxx_log );
-UNARY_FUNC( binary_not_func , ! );
+
 
 BINARY_OPERATOR( plus_func , + );
 BINARY_OPERATOR( minus_func , - );
 BINARY_OPERATOR( multiplies_func , * );
 BINARY_OPERATOR( divides_func , / );
-BINARY_OPERATOR( binary_or_func , || );
-BINARY_OPERATOR( binary_and_func , && );
-
 
 
 template< size_t I >
@@ -89,6 +86,8 @@ struct dyn_array_terminal
         return static_cast< result_type >( c[index] );
     }
 };
+
+
 
 template< int V >
 struct constant_terminal

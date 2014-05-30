@@ -49,100 +49,185 @@ char const newl = '\n';
 using boost::format;
 using boost::str;
 
-size_t const nSlots = 4;
-size_t const nColours = 6;
 
-size_t const terminalsNeeded = 2 * nSlots + nSlots * nColours;
-int posColorHitFactor = 8;
-
-typedef bool value_type;
-typedef gpcxx::regression_training_data< value_type , terminalsNeeded > trainings_data_type;
-typedef std::mt19937 rng_type ;
-typedef std::array< value_type , terminalsNeeded > eval_context_type;
-typedef std::vector< value_type > fitness_type;
-typedef gpcxx::basic_named_intrusive_node< double , eval_context_type > node_type;
-typedef gpcxx::intrusive_tree< node_type > tree_type;
-typedef std::vector< tree_type > population_type;
-
-
-
-struct evaluator
-{
-    typedef eval_context_type context_type;
-    typedef double value_type;
-    
-    value_type operator()( tree_type const& t , context_type const& c ) const
+namespace gpcxx {
+    template<size_t ELEMENT>
+    struct element_terminal
     {
-        return t.root()->eval( c );
+        template< typename Context , typename Node >
+        typename Node::result_type operator()( Context const& c , Node const& node ) const
+        {
+            typedef typename Node::result_type result_type;
+            result_type bs; 
+            bs.set(ELEMENT);
+            return bs;
+        }
+    }; 
+    
+    template<class T>
+    T ror(T x, unsigned int moves)
+    {
+        return (x >> moves) | (x << sizeof(T)*8 - moves);
     }
-};
+    
+    template<size_t SHIFT>
+    struct unary_rrot_func
+    {
+        template< typename Context , typename Node >
+        typename Node::result_type operator()( Context const& c , Node const& node ) const
+        {
+            return ror( node.children( 0 )->eval( c ) , SHIFT );
+        }
+    }; 
+        
+    struct binary_or_func                                                                               
+    {                                                                                                     
+        template< typename Context , typename Node >                                                      
+        inline typename Node::result_type operator()( Context const& c , Node const& node ) const         
+        {                                                                                                 
+            return node.children( 0 )->eval( c ) | node.children( 1 )->eval( c );                        
+        }                                                                                                 
+    };
+    
+    
+    struct binary_and_func                                                                               
+    {                                                                                                     
+        template< typename Context , typename Node >                                                      
+        inline typename Node::result_type operator()( Context const& c , Node const& node ) const         
+        {                                                                                                 
+            return node.children( 0 )->eval( c ) & node.children( 1 )->eval( c );                        
+        }                                                                                                 
+    };
+    
+    struct binary_xor_func                                                                               
+    {                                                                                                     
+        template< typename Context , typename Node >                                                      
+        inline typename Node::result_type operator()( Context const& c , Node const& node ) const         
+        {                                                                                                 
+            return node.children( 0 )->eval( c ) ^ node.children( 1 )->eval( c );                        
+        }                                                                                                 
+    };
+    
+    struct binary_nand_func                                                                               
+    {                                                                                                     
+        template< typename Context , typename Node >                                                      
+        inline typename Node::result_type operator()( Context const& c , Node const& node ) const         
+        {                                                                                                 
+            return ~( node.children( 0 )->eval( c ) & node.children( 1 )->eval( c ) );                        
+        }                                                                                                 
+    };
+    
+    struct binary_nor_func                                                                               
+    {                                                                                                     
+        template< typename Context , typename Node >                                                      
+        inline typename Node::result_type operator()( Context const& c , Node const& node ) const         
+        {                                                                                                 
+            return ~( node.children( 0 )->eval( c ) | node.children( 1 )->eval( c ) );                        
+        }                                                                                                 
+    };
+    
+    struct binary_nxor_func                                                                               
+    {                                                                                                     
+        template< typename Context , typename Node >                                                      
+        inline typename Node::result_type operator()( Context const& c , Node const& node ) const         
+        {                                                                                                 
+            return ~( node.children( 0 )->eval( c ) ^ node.children( 1 )->eval( c ) );                        
+        }                                                                                                 
+    };
+    
+    struct unary_inv_func                                                                     
+    {                                                                                                     
+        template< typename Context , typename Node >                                                      
+        inline typename Node::result_type operator()( Context const& c , Node const& node ) const         
+        {                                                                                                 
+            return ~( node.children( 0 )->eval( c ) );                                                 
+        }                                                                                                 
+    };
+    
+    template< typename Value = double >
+    struct terminal
+    {     
+        template< typename Context , typename Node >
+        typename Node::result_type operator()( Context const& c , Node const& node ) const
+        {
+            typedef typename Node::result_type result_type;        
+            return static_cast< result_type >( c[0] );
+        }
+    };
+    
+    template< typename Value >
+    terminal<Value> make_terminal(const Value & v)
+    {
+        return terminal<Value> ();
+    }
+    
+}
 
-template<size_t nSlots_, size_t nColours_>
+
+
+template<size_t nslots_, size_t ncolours_>
 class MasterMindRow 
 {
 public:
     typedef size_t color_t;
-    typedef char dataType;
-    static size_t const nSlots         = nSlots_;
-    static size_t const nColours       = nColours_;
-    static size_t const dataSize = nSlots_ * 2 + nSlots_ * nColours_;
-    static color_t const defaultColor   = 0;
+
+    static size_t const nslots   = nslots_;
+    static size_t const ncolours = ncolours_;
+    static size_t const data_size = nslots_ * 2 + nslots_ * ncolours_;
+    static color_t const defaultColor = 0;
     
+    typedef std::bitset<data_size> data_type;
 
     MasterMindRow()
-        :data_(dataSize)
     {
-        for(size_t i = 0; i < nSlots; ++i)
+        for(size_t i = 0; i < nslots; ++i)
             color(i, defaultColor);
-        
     }
     
     MasterMindRow(std::initializer_list<color_t> entries)
-        :data_(dataSize)
     {
-        BOOST_VERIFY( nSlots_ == entries.size() );
+        BOOST_VERIFY( nslots_ == entries.size() );
         size_t index = 0;
         for(color_t c : entries )
-            color(index++, c);
-            
+            color(index++, c);            
     }
     
     
     void color(size_t pos, color_t colorId)
     {
-        BOOST_VERIFY( pos < nSlots );
-        BOOST_VERIFY( colorId < nColours );
+        BOOST_VERIFY( pos < nslots );
+        BOOST_VERIFY( colorId < ncolours );
         
-        for(int i = 0; i < nColours_; ++i)
-            data_[nSlots_ * 2 + (pos * nColours_) + i] = false;
+        for(int i = 0; i < ncolours_; ++i)
+            data_.reset( nslots_ * 2 + (pos * ncolours_) + i );
         
-        size_t const posOfColor = (nSlots_ * 2) + (pos * nColours_) +  colorId;
-        data_[ posOfColor ] = true;
+        size_t const posOfColor = (nslots_ * 2) + (pos * ncolours_) +  colorId;
+        data_.set( posOfColor );
     }
    
     color_t color(size_t pos) const 
     {
-        for(int i = 0; i < nColours_; ++i)
-            if(data_[ nSlots_ * 2 + (pos * nColours_) + i ])
+        for(int i = 0; i < ncolours_; ++i)
+            if(data_.test( nslots_ * 2 + (pos * ncolours_) + i ) )
                 return i;
         BOOST_VERIFY( false );
-        return nColours; //no color ist set
+        return ncolours; //no color ist set
     }
         
     std::string toStringFormated() const 
     {
         std::string s;
-        for(int i = 0; i < nSlots; ++i)
-            s.append(data_[ i ] ? "1" : "0");     
+        for(int i = 0; i < nslots; ++i)
+            s.append(data_.test( i ) ? "1" : "0");     
         s.append("'");
-        for(int i = nSlots; i < (nSlots*2); ++i)
-            s.append(data_[ i ] ? "1" : "0");  
+        for(int i = nslots; i < (nslots*2); ++i)
+            s.append(data_.test( i ) ? "1" : "0");  
         
-        for(int i = (nSlots*2); i < (nSlots_ * 2 + nSlots_ * nColours_ ); ++i)
+        for(int i = (nslots*2); i < (nslots_ * 2 + nslots_ * ncolours_ ); ++i)
         {
-            if(((i-(nSlots_ * 2))%nColours_) == 0)
+            if(((i-(nslots_ * 2))%ncolours_) == 0)
                 s.append("'");
-            s.append(data_[ i ] ? "1" : "0");  
+            s.append(data_.test( i ) ? "1" : "0");  
 
         }
         
@@ -151,25 +236,25 @@ public:
     }
     
 
-    void compareTo(const MasterMindRow<nSlots_, nColours_> & other)
+    void compareTo(const MasterMindRow<nslots_, ncolours_> & other)
     {
         size_t colorPosHits = 0;
-        for(size_t i = 0; i < nSlots_; ++i)
+        for(size_t i = 0; i < nslots_; ++i)
         {
             if(color(i) == other.color(i))
                 colorPosHits++;
         }
         
-        size_t countColors[nColours] = {};
-        size_t countColorsOther[nColours] = {};
-        for(size_t i = 0; i < nSlots; ++i)
+        size_t countColors[ncolours] = {};
+        size_t countColorsOther[ncolours] = {};
+        for(size_t i = 0; i < nslots; ++i)
         {
             countColors[color(i)]++;
             countColorsOther[other.color(i)]++;
         }
               
         size_t colorHits = 0;
-        for(size_t i = 0; i < nColours; ++i)
+        for(size_t i = 0; i < ncolours; ++i)
         {
             colorHits += std::min(countColors[i], countColorsOther[i]);
         }
@@ -183,47 +268,55 @@ public:
     size_t posAndColorHits() const
     {
         size_t c = 0;
-        for(size_t i = (nSlots*0); i < (nSlots*1); ++i)
-            c += data_[i] ? 1 : 0;     
+        for(size_t i = (nslots*0); i < (nslots*1); ++i)
+            c += data_.test( i ) ? 1 : 0;     
         return c;
     }
     
     size_t colorHits() const
     {
         size_t c = 0;
-        for(size_t i = (nSlots*1); i < (nSlots*2); ++i)
-            c += data_[i] ? 1 : 0;    
+        for(size_t i = (nslots*1); i < (nslots*2); ++i)
+            c += data_.test( i ) ? 1 : 0;    
         return c;
     }
     
-    std::vector< dataType > const  & data() const
+    data_type data()
     {
         return data_;
     }
+    
+    int score() const
+    {
+        int pos_color_hit_factor = 10;
+        int max_score = nslots * pos_color_hit_factor;
+        return max_score - (colorHits() + posAndColorHits() * pos_color_hit_factor);
+    }
+    
 private:
     
     void setHits(size_t posAndColorHit, size_t colorHit)
     {
-        BOOST_VERIFY( posAndColorHit <= nSlots );
-        BOOST_VERIFY( colorHit <= nSlots );
-        BOOST_VERIFY( ( colorHit + posAndColorHit ) <= nSlots );
+        BOOST_VERIFY( posAndColorHit <= nslots );
+        BOOST_VERIFY( colorHit <= nslots );
+        BOOST_VERIFY( ( colorHit + posAndColorHit ) <= nslots );
         
-        for(size_t i = 0; i < (nSlots*2); ++i)
-            data_[ i ] = false;
+        for(size_t i = 0; i < (nslots*2); ++i)
+            data_.reset( i );
         
         for(size_t i = 0; i < posAndColorHit; ++i)
-            data_[ nSlots_ * 0 + i] = true;
+            data_.set( nslots_ * 0 + i );
         
         for(size_t i = 0; i < colorHit; ++i)
-            data_[ nSlots_ * 1 + i ] = true;
+            data_.set( nslots_ * 1 + i );
     }
     
     size_t countByColor(color_t colorId) const
     {
         size_t colorCount = 0;
-        for(size_t i = 0; i < nSlots; ++i)
+        for(size_t i = 0; i < nslots; ++i)
         {
-            if( data_[ (nSlots_ * 2) + (i * nColours_) +  colorId ] )
+            if( data_.test( (nslots_ * 2) + (i * ncolours_) +  colorId ) )
                 colorCount++;
         }
         return colorCount;
@@ -231,13 +324,13 @@ private:
     
     size_t searchColor(color_t colorId, size_t startPos = 0) const
     {
-        BOOST_VERIFY( startPos < nSlots );
-        for(size_t i = startPos; i < nSlots; ++i)
+        BOOST_VERIFY( startPos < nslots );
+        for(size_t i = startPos; i < nslots; ++i)
         {
-            if( data_[ (nSlots_ * 2) + (i * nColours_) +  colorId ] )
+            if( data_.test( (nslots_ * 2) + (i * ncolours_) +  colorId ) )
                 return i;
         }
-        return nSlots;
+        return nslots;
     }
     
     bool hasColor(color_t colorId) const 
@@ -248,7 +341,7 @@ private:
 
     
 private:
-    std::vector< dataType > data_;
+    data_type data_;
 };
     
     
@@ -256,20 +349,17 @@ private:
 template<typename MMRowT, typename RandGenT>
 void fillMMRowWithColor(MMRowT & mMRow, RandGenT & randomGen)
 {
-    for(size_t i = 0; i < MMRowT::nSlots; ++i)
-    {
-        mMRow.color(i, randomGen() % MMRowT::nColours);
-    }
+    for(size_t i = 0; i < MMRowT::nslots; ++i)
+        mMRow.color(i, randomGen() % MMRowT::ncolours);
 } 
 
 
 bool test();
 
-template< typename rnd_type, typename mmrow_type>
+template<typename trainings_data_type, typename rnd_type, typename mmrow_type>
 void generate_test_data( trainings_data_type &data, size_t makeN, mmrow_type secred_mmrow, rnd_type random_generator)
 {
-    for(size_t i = 0; i < mmrow_type::dataSize; ++i)
-        data.x[i].clear();
+    data.x[0].clear();
     data.y.clear();
     
     for(size_t i = 0; i < makeN; ++i)
@@ -277,11 +367,8 @@ void generate_test_data( trainings_data_type &data, size_t makeN, mmrow_type sec
         mmrow_type rnd_mmrow;
         fillMMRowWithColor(rnd_mmrow, random_generator);
         rnd_mmrow.compareTo( secred_mmrow );
-        for(size_t k = 0; k < rnd_mmrow.data().size(); ++k)
-        {
-            data.x[k].push_back(rnd_mmrow.data()[k]);
-            data.y.push_back( rnd_mmrow.posAndColorHits() * posColorHitFactor + rnd_mmrow.colorHits() );
-        }
+        data.x[0].push_back( rnd_mmrow.data() );
+        data.y.push_back( rnd_mmrow.score() );
     }
 }
 
@@ -289,45 +376,95 @@ void generate_test_data( trainings_data_type &data, size_t makeN, mmrow_type sec
 int main( int argc , char *argv[] )
 {
     test();
+       
+    size_t const nslots = 4;
+    size_t const ncolours = 6;
+    typedef MasterMindRow< nslots, ncolours > default_mastermind_row_t;
+   // size_t const terminals_needed = MasterMindRow< nslots, ncolours >::data_size ;
+    
+    size_t const nterminals = 1;
+    
+    typedef typename  default_mastermind_row_t::data_type value_type;
+    typedef gpcxx::regression_training_data< value_type , nterminals > trainings_data_type;
+    typedef std::mt19937 rng_type ;
+    typedef std::array< value_type , nterminals > eval_context_type;
+    typedef std::vector< double > fitness_type;
+    typedef gpcxx::basic_named_intrusive_node< value_type , eval_context_type > node_type;
+    typedef gpcxx::intrusive_tree< node_type > tree_type;
+    typedef std::vector< tree_type > population_type;
+//     
+    
     size_t const initPopulationSize = 128;
-    size_t const nSlots = 4;
-    size_t const nColours = 6;
+
     int const seed = 100;
     rng_type rnd (seed);
-    MasterMindRow< nSlots, nColours > tosearch{0,1,2,3};   
-    
-    trainings_data_type c;
-    generate_test_data( c , initPopulationSize,  tosearch, rnd);
 
-    typedef gpcxx::static_pipeline< population_type , fitness_type , rng_type > evolver_type;
+    default_mastermind_row_t tosearch{0,1,2,3};   
     
-    std::vector< node_type > terminals;
-    std::vector< std::string > terminal_names;
-    for(size_t i = nSlots*0; i < nSlots*1; ++i)
-        terminal_names.emplace_back( str( format("b%02d") % i ) );
-    
-    for(size_t i = nSlots*1; i < nSlots*2; ++i)
-        terminal_names.emplace_back( str( format("w%02d") % (i%nSlots) ) );
-    
-    for(size_t i = nSlots*2; i < (nSlots*2+nSlots*nColours); ++i)
-        terminal_names.emplace_back( str( format("s%02dc%02d") % ((i-nSlots*2)/nColours) % ((i-nSlots*2)%nColours) ) );
-    
-    
-    for(size_t i = 0; i < tosearch.data().size(); ++i)
-    {
-        terminals.push_back( node_type { gpcxx::dyn_array_terminal{ i } ,  terminal_names[i] } );
-        std::cout << terminal_names[i] << newl;
-    }
-    
-    
+     trainings_data_type c;
+     generate_test_data( c , initPopulationSize,  tosearch, rnd);
+ 
+     typedef gpcxx::static_pipeline< population_type , fitness_type , rng_type > evolver_type;
+     
+     std::vector< node_type > terminals {
+         node_type { gpcxx::terminal< value_type >{  } ,  "r" } 
+     };
+
+
+      
     gpcxx::uniform_symbol< node_type > terminal_gen { terminals };
     
-    gpcxx::uniform_symbol< node_type > binary_gen { std::vector< node_type >{
-        node_type { gpcxx::binary_or_func{} ,  "||" } ,
-        node_type { gpcxx::binary_and_func{} , "&&" }  }       
+    gpcxx::uniform_symbol< node_type > binary_gen 
+    { 
+        std::vector< node_type >{
+            node_type { gpcxx::binary_or_func{} ,   "|"  } ,
+            node_type { gpcxx::binary_and_func{} ,  "&"  } ,
+            node_type { gpcxx::binary_xor_func{} ,  "^"  } ,
+            node_type { gpcxx::binary_nor_func{} ,  "!|" } ,
+            node_type { gpcxx::binary_nand_func{} , "!&" } ,
+            node_type { gpcxx::binary_nxor_func{} , "!^" }            
+        }       
     };
-    gpcxx::uniform_symbol< node_type > unary_gen { std::vector< node_type >{
-        node_type { gpcxx::binary_not_func{} , "!" }  }
+    gpcxx::uniform_symbol< node_type > unary_gen 
+    { 
+        std::vector< node_type >{
+            node_type { gpcxx::unary_inv_func{} , "~" } ,
+            node_type { gpcxx::unary_rrot_func<  0 >{} , ">0>" } ,
+            node_type { gpcxx::unary_rrot_func<  1 >{} , ">1>" } , 
+            node_type { gpcxx::unary_rrot_func<  2 >{} , ">2>" } ,
+            node_type { gpcxx::unary_rrot_func<  3 >{} , ">3>" } ,
+            node_type { gpcxx::unary_rrot_func<  4 >{} , ">4>" } ,
+            node_type { gpcxx::unary_rrot_func<  5 >{} , ">5>" } ,
+            node_type { gpcxx::unary_rrot_func<  6 >{} , ">6>" } ,
+            node_type { gpcxx::unary_rrot_func<  7 >{} , ">7>" } ,
+            node_type { gpcxx::unary_rrot_func<  8 >{} , ">8>" } ,
+            node_type { gpcxx::unary_rrot_func<  9 >{} , ">9>" } ,
+            node_type { gpcxx::unary_rrot_func< 10 >{} , ">10>" } ,
+            node_type { gpcxx::unary_rrot_func< 11 >{} , ">11>" } ,
+            node_type { gpcxx::unary_rrot_func< 12 >{} , ">12>" } ,
+            node_type { gpcxx::unary_rrot_func< 13 >{} , ">13>" } ,
+            node_type { gpcxx::unary_rrot_func< 14 >{} , ">14>" } ,
+            node_type { gpcxx::unary_rrot_func< 15 >{} , ">15>" } ,
+            node_type { gpcxx::unary_rrot_func< 16 >{} , ">16>" } ,
+            node_type { gpcxx::unary_rrot_func< 17 >{} , ">17>" } ,
+            node_type { gpcxx::unary_rrot_func< 18 >{} , ">18>" } ,
+            node_type { gpcxx::unary_rrot_func< 19 >{} , ">19>" } ,
+            node_type { gpcxx::unary_rrot_func< 20 >{} , ">20>" } ,
+            node_type { gpcxx::unary_rrot_func< 21 >{} , ">21>" } ,
+            node_type { gpcxx::unary_rrot_func< 22 >{} , ">22>" } ,
+            node_type { gpcxx::unary_rrot_func< 23 >{} , ">23>" } ,
+            node_type { gpcxx::unary_rrot_func< 24 >{} , ">24>" } ,
+            node_type { gpcxx::unary_rrot_func< 25 >{} , ">25>" } ,
+            node_type { gpcxx::unary_rrot_func< 26 >{} , ">26>" } ,
+            node_type { gpcxx::unary_rrot_func< 27 >{} , ">27>" } ,
+            node_type { gpcxx::unary_rrot_func< 28 >{} , ">28>" } ,
+            node_type { gpcxx::unary_rrot_func< 29 >{} , ">29>" } ,
+            node_type { gpcxx::unary_rrot_func< 30 >{} , ">30>" } ,
+            node_type { gpcxx::unary_rrot_func< 31 >{} , ">31>" } ,
+            node_type { gpcxx::unary_rrot_func< 32 >{} , ">32>" } 
+            
+            
+        }
     };  
     
     size_t population_size = 128;
@@ -351,38 +488,43 @@ int main( int argc , char *argv[] )
     
     evolver.mutation_function() = gpcxx::make_mutation(
         gpcxx::make_simple_mutation_strategy( rnd , terminal_gen , unary_gen , binary_gen ) ,
-                                                       gpcxx::make_tournament_selector( rnd , tournament_size ) );
+        gpcxx::make_tournament_selector( rnd , tournament_size ) 
+    );
+    
     evolver.crossover_function() = gpcxx::make_crossover( 
-    gpcxx::make_one_point_crossover_strategy( rnd , max_tree_height ) ,
-                                                         gpcxx::make_tournament_selector( rnd , tournament_size ) );
-    evolver.reproduction_function() = gpcxx::make_reproduce( gpcxx::make_tournament_selector( rnd , tournament_size ) );
-    
-    gpcxx::timer timer;
-    auto fitness_f = gpcxx::make_regression_fitness( evaluator() );
-    
-    // initialize population with random trees and evaluate fitness
-    timer.restart();
-    for( size_t i=0 ; i<population.size() ; ++i )
-    {
-        tree_generator( population[i] );
-        fitness[i] = fitness_f( population[i] , c );
-    }
-    std::cout << gpcxx::indent( 0 ) << "Generation time " << timer.seconds() << std::endl;
-    std::cout << gpcxx::indent( 1 ) << "Best individuals" << std::endl << gpcxx::best_individuals( population , fitness , 1 , 10 ) << std::endl;
-    std::cout << gpcxx::indent( 1 ) << "Statistics : " << gpcxx::calc_population_statistics( population ) << std::endl;
-    std::cout << gpcxx::indent( 1 ) << std::endl << std::endl;
+        gpcxx::make_one_point_crossover_strategy( rnd , max_tree_height ) ,
+        gpcxx::make_tournament_selector( rnd , tournament_size ) 
+    );
+    evolver.reproduction_function() = gpcxx::make_reproduce( 
+        gpcxx::make_tournament_selector( rnd , tournament_size ) 
+    );
+//     
+//     gpcxx::timer timer;
+//     auto fitness_f = gpcxx::make_regression_fitness( evaluator() );
+//     
+//     // initialize population with random trees and evaluate fitness
+//     timer.restart();
+//     for( size_t i=0 ; i<population.size() ; ++i )
+//     {
+//         tree_generator( population[i] );
+//         fitness[i] = fitness_f( population[i] , c );
+//     }
+//     std::cout << gpcxx::indent( 0 ) << "Generation time " << timer.seconds() << std::endl;
+//     std::cout << gpcxx::indent( 1 ) << "Best individuals" << std::endl << gpcxx::best_individuals( population , fitness , 1 , 10 ) << std::endl;
+//     std::cout << gpcxx::indent( 1 ) << "Statistics : " << gpcxx::calc_population_statistics( population ) << std::endl;
+//     std::cout << gpcxx::indent( 1 ) << std::endl << std::endl;
 }
 
 
 bool test()
 {
-    size_t const nSlots = 4;
-    size_t const nColours = 6;
+    size_t const nslots = 4;
+    size_t const ncolours = 6;
     int const seed = 100;
     boost::rand48 rd (seed);
-    MasterMindRow< nSlots, nColours > colorSecret;
-    MasterMindRow< nSlots, nColours > colorTest;   
-    MasterMindRow< nSlots, nColours > colorTest2{0,1,2,3};   
+    MasterMindRow< nslots, ncolours > colorSecret;
+    MasterMindRow< nslots, ncolours > colorTest;   
+    MasterMindRow< nslots, ncolours > colorTest2{0,1,2,3};   
 
     fillMMRowWithColor(colorSecret, rd);
     fillMMRowWithColor(colorTest, rd);
@@ -399,22 +541,22 @@ bool test()
         tab << colorTest2.colorHits() << newl;
         
     {
-        MasterMindRow< nSlots, nColours > colorSecret{0,0,0,0};
-        MasterMindRow< nSlots, nColours > colorTest{0,0,0,0};   
+        MasterMindRow< nslots, ncolours > colorSecret{0,0,0,0};
+        MasterMindRow< nslots, ncolours > colorTest{0,0,0,0};   
         colorSecret.compareTo(colorTest);
         BOOST_VERIFY(colorSecret.colorHits() == 0);
         BOOST_VERIFY(colorSecret.posAndColorHits() == 4);
     }
     {
-        MasterMindRow< nSlots, nColours > colorSecret{0,0,0,0};
-        MasterMindRow< nSlots, nColours > colorTest  {1,1,0,0};   
+        MasterMindRow< nslots, ncolours > colorSecret{0,0,0,0};
+        MasterMindRow< nslots, ncolours > colorTest  {1,1,0,0};   
         colorSecret.compareTo(colorTest);
         BOOST_VERIFY(colorSecret.colorHits() == 0);
         BOOST_VERIFY(colorSecret.posAndColorHits() == 2);
     }
     {
-        MasterMindRow< nSlots, nColours > colorSecret{0,0,0,4};
-        MasterMindRow< nSlots, nColours > colorTest  {1,1,3,0};   
+        MasterMindRow< nslots, ncolours > colorSecret{0,0,0,4};
+        MasterMindRow< nslots, ncolours > colorTest  {1,1,3,0};   
         colorSecret.compareTo(colorTest);
         BOOST_VERIFY(colorSecret.colorHits() == 1);
         BOOST_VERIFY(colorSecret.posAndColorHits() == 0);
