@@ -165,6 +165,8 @@ namespace gpcxx {
 
 
 
+
+
 template<size_t nslots_, size_t ncolours_>
 class MasterMindRow 
 {
@@ -190,6 +192,11 @@ public:
         size_t index = 0;
         for(color_t c : entries )
             color(index++, c);            
+    }
+    
+    MasterMindRow(const data_type & data)
+    {
+        data_ = data;
     }
     
     
@@ -344,7 +351,28 @@ private:
     data_type data_;
 };
     
+
+template<typename mm_row_t, typename tree_type, typename eval_context_type >
+struct evaluator
+{
+    mm_row_t secredrow_;
     
+    evaluator(mm_row_t const & secredrow)
+    :secredrow_( secredrow )
+    {
+    }
+    
+
+    typedef eval_context_type context_type;
+    typedef double value_type;
+    
+    value_type operator()( tree_type const& t , context_type const& c ) const
+    {
+        auto tmp_row = mm_row_t( t.root()->eval( c ) );
+        tmp_row.compareTo( secredrow_ );
+        return tmp_row.score();
+    }
+};
 
 template<typename MMRowT, typename RandGenT>
 void fillMMRowWithColor(MMRowT & mMRow, RandGenT & randomGen)
@@ -373,16 +401,33 @@ void generate_test_data( trainings_data_type &data, size_t makeN, mmrow_type sec
 }
 
 
+template<typename Vec,  int Idx>
+struct add_rrot_op
+{
+    inline void operator() (Vec & v)
+    {
+        v.emplace_back(typename Vec::value_type { gpcxx::unary_rrot_func< Idx >{} , ">>" } );
+        add_rrot_op<Vec, Idx-1>()( v );
+    }    
+};
+
+template<typename Vec>
+struct add_rrot_op<Vec, -1>
+{
+    inline void operator() (Vec & v) {}    
+};
+
+
 int main( int argc , char *argv[] )
 {
     test();
        
     size_t const nslots = 4;
     size_t const ncolours = 6;
-    typedef MasterMindRow< nslots, ncolours > default_mastermind_row_t;
-   // size_t const terminals_needed = MasterMindRow< nslots, ncolours >::data_size ;
-    
     size_t const nterminals = 1;
+    
+    typedef MasterMindRow< nslots, ncolours > default_mastermind_row_t;
+
     
     typedef typename  default_mastermind_row_t::data_type value_type;
     typedef gpcxx::regression_training_data< value_type , nterminals > trainings_data_type;
@@ -425,61 +470,30 @@ int main( int argc , char *argv[] )
             node_type { gpcxx::binary_nxor_func{} , "!^" }            
         }       
     };
-    gpcxx::uniform_symbol< node_type > unary_gen 
-    { 
-        std::vector< node_type >{
-            node_type { gpcxx::unary_inv_func{} , "~" } ,
-            node_type { gpcxx::unary_rrot_func<  0 >{} , ">0>" } ,
-            node_type { gpcxx::unary_rrot_func<  1 >{} , ">1>" } , 
-            node_type { gpcxx::unary_rrot_func<  2 >{} , ">2>" } ,
-            node_type { gpcxx::unary_rrot_func<  3 >{} , ">3>" } ,
-            node_type { gpcxx::unary_rrot_func<  4 >{} , ">4>" } ,
-            node_type { gpcxx::unary_rrot_func<  5 >{} , ">5>" } ,
-            node_type { gpcxx::unary_rrot_func<  6 >{} , ">6>" } ,
-            node_type { gpcxx::unary_rrot_func<  7 >{} , ">7>" } ,
-            node_type { gpcxx::unary_rrot_func<  8 >{} , ">8>" } ,
-            node_type { gpcxx::unary_rrot_func<  9 >{} , ">9>" } ,
-            node_type { gpcxx::unary_rrot_func< 10 >{} , ">10>" } ,
-            node_type { gpcxx::unary_rrot_func< 11 >{} , ">11>" } ,
-            node_type { gpcxx::unary_rrot_func< 12 >{} , ">12>" } ,
-            node_type { gpcxx::unary_rrot_func< 13 >{} , ">13>" } ,
-            node_type { gpcxx::unary_rrot_func< 14 >{} , ">14>" } ,
-            node_type { gpcxx::unary_rrot_func< 15 >{} , ">15>" } ,
-            node_type { gpcxx::unary_rrot_func< 16 >{} , ">16>" } ,
-            node_type { gpcxx::unary_rrot_func< 17 >{} , ">17>" } ,
-            node_type { gpcxx::unary_rrot_func< 18 >{} , ">18>" } ,
-            node_type { gpcxx::unary_rrot_func< 19 >{} , ">19>" } ,
-            node_type { gpcxx::unary_rrot_func< 20 >{} , ">20>" } ,
-            node_type { gpcxx::unary_rrot_func< 21 >{} , ">21>" } ,
-            node_type { gpcxx::unary_rrot_func< 22 >{} , ">22>" } ,
-            node_type { gpcxx::unary_rrot_func< 23 >{} , ">23>" } ,
-            node_type { gpcxx::unary_rrot_func< 24 >{} , ">24>" } ,
-            node_type { gpcxx::unary_rrot_func< 25 >{} , ">25>" } ,
-            node_type { gpcxx::unary_rrot_func< 26 >{} , ">26>" } ,
-            node_type { gpcxx::unary_rrot_func< 27 >{} , ">27>" } ,
-            node_type { gpcxx::unary_rrot_func< 28 >{} , ">28>" } ,
-            node_type { gpcxx::unary_rrot_func< 29 >{} , ">29>" } ,
-            node_type { gpcxx::unary_rrot_func< 30 >{} , ">30>" } ,
-            node_type { gpcxx::unary_rrot_func< 31 >{} , ">31>" } ,
-            node_type { gpcxx::unary_rrot_func< 32 >{} , ">32>" } 
-            
-            
-        }
-    };  
     
-    size_t population_size = 128;
+    std::vector< node_type > unary_nodes {}; 
+    add_rrot_op< std::vector< node_type >, default_mastermind_row_t::data_size >()( unary_nodes );
+    unary_nodes.emplace_back( node_type { gpcxx::unary_inv_func{} , "~" } );
+    gpcxx::uniform_symbol< node_type > unary_gen { unary_nodes }; 
+    
+//     gpcxx::uniform_symbol< node_type > unary_gen { std::vector< node_type >{  } };  
+    
+
+    
+    size_t population_size = 64;
     size_t generation_size = 20;
     double number_elite = 1;
     double mutation_rate = 0.0;
     double crossover_rate = 0.6;
     double reproduction_rate = 0.3;
     size_t min_tree_height = 1; 
-    size_t max_tree_height = 64;
+    size_t max_tree_height = 32;
     size_t tournament_size = 15;
     
     std::array< double , 3 > weights = {{ double( terminal_gen.num_symbols() ) ,
-                                          double( unary_gen.num_symbols() ) ,
-                                          double( binary_gen.num_symbols() ) }};
+                                          double( unary_gen.num_symbols() ) / 10 ,
+                                          double( binary_gen.num_symbols() )
+    }};
     
     auto tree_generator = gpcxx::make_basic_generate_strategy( rnd , terminal_gen , unary_gen , binary_gen , max_tree_height , max_tree_height , weights );
     evolver_type evolver( number_elite , mutation_rate , crossover_rate , reproduction_rate , rnd );
@@ -498,21 +512,21 @@ int main( int argc , char *argv[] )
     evolver.reproduction_function() = gpcxx::make_reproduce( 
         gpcxx::make_tournament_selector( rnd , tournament_size ) 
     );
+    
+    gpcxx::timer timer;
+    auto fitness_f = gpcxx::make_regression_fitness( evaluator<default_mastermind_row_t, tree_type, eval_context_type > { tosearch } );
 //     
-//     gpcxx::timer timer;
-//     auto fitness_f = gpcxx::make_regression_fitness( evaluator() );
-//     
-//     // initialize population with random trees and evaluate fitness
-//     timer.restart();
-//     for( size_t i=0 ; i<population.size() ; ++i )
-//     {
-//         tree_generator( population[i] );
-//         fitness[i] = fitness_f( population[i] , c );
-//     }
-//     std::cout << gpcxx::indent( 0 ) << "Generation time " << timer.seconds() << std::endl;
-//     std::cout << gpcxx::indent( 1 ) << "Best individuals" << std::endl << gpcxx::best_individuals( population , fitness , 1 , 10 ) << std::endl;
-//     std::cout << gpcxx::indent( 1 ) << "Statistics : " << gpcxx::calc_population_statistics( population ) << std::endl;
-//     std::cout << gpcxx::indent( 1 ) << std::endl << std::endl;
+    // initialize population with random trees and evaluate fitness
+    timer.restart();
+    for( size_t i=0 ; i<population.size() ; ++i )
+    {
+        tree_generator( population[i] );
+        //fitness[i] = fitness_f( population[i] , c );
+    }
+     std::cout << gpcxx::indent( 0 ) << "Generation time " << timer.seconds() << newl;
+     std::cout << gpcxx::indent( 1 ) << "Best individuals" << newl << gpcxx::best_individuals( population , fitness , 1 , 10 ) << newl;
+     std::cout << gpcxx::indent( 1 ) << "Statistics : " << gpcxx::calc_population_statistics( population ) << newl;
+     std::cout << gpcxx::indent( 1 ) << newl << newl;
 }
 
 
