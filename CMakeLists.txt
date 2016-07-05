@@ -18,6 +18,12 @@ ADD_DEFINITIONS(
     -std=c++11
 )
 
+option ( GPCXX_BUILD_UNITTESTS "Enable if you want to build unit tests" ON )
+option ( GPCXX_BUILD_EXAMPLES "Enable if you want to build examples" ON )
+option ( GPCXX_BUILD_PERFORMANCE "Enable if you want to build performance tests" ON )
+option ( GPCXX_BUILD_DOCS "Enable if you want to build the docs" ON )
+
+
 set ( THIRDPARTY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party" )
 
 # Add path for custom modules
@@ -36,6 +42,7 @@ message ( STATUS "Version ${GPCXX_VERSION_SHORT}" )
 
 set ( EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR} )
 
+set ( BOOST_ROOT    "${THIRDPARTY_ROOT}/boost" )
 find_package ( Boost REQUIRED COMPONENTS thread system )
 
 if ( ${Boost_FOUND} )
@@ -46,15 +53,25 @@ endif ()
 include_directories ( ${Boost_INCLUDE_DIRS} )
 include_directories ( ${CMAKE_CURRENT_SOURCE_DIR}/include )
 
-add_subdirectory ( examples )
-add_subdirectory ( performance )
-add_subdirectory ( doc )
+if ( ${GPCXX_BUILD_EXAMPLES} ) 
+    add_subdirectory ( examples )
+endif ()
 
-set( GMOCK_ROOT "${THIRDPARTY_ROOT}/gmock" )
-set( GTEST_ROOT "${THIRDPARTY_ROOT}/gmock/gtest" )
+if ( ${GPCXX_BUILD_PERFORMANCE} )
+    add_subdirectory ( performance )
+endif ()
 
-if ( IS_DIRECTORY ${GMOCK_ROOT}  AND IS_DIRECTORY ${GTEST_ROOT} )
+if ( ${GPCXX_BUILD_DOCS} )
+    add_subdirectory ( doc )
+endif ()
+
+find_path( GMOCK_ROOT NAMES src/gmock-all.cc PATHS "${THIRDPARTY_ROOT}/gmock/" "${THIRDPARTY_ROOT}/googlemock/googlemock/" "${THIRDPARTY_ROOT}/googletest/googlemock/" )
+find_path( GTEST_ROOT NAMES src/gtest-all.cc PATHS "${THIRDPARTY_ROOT}/gtest/" "${THIRDPARTY_ROOT}/googletest/googletest/" )
+
+
+if ( ${GPCXX_BUILD_UNITTESTS} AND  IS_DIRECTORY ${GMOCK_ROOT}  AND IS_DIRECTORY ${GTEST_ROOT} )
   
+  message( STATUS "Found Google C++ Mockin/Testing Framework in ${GMOCK_ROOT} and ${GTEST_ROOT} therefore enabling testing" )  
   include_directories ( ${GTEST_ROOT} ${GTEST_ROOT}/include ${GMOCK_ROOT} ${GMOCK_ROOT}/include )
   
   add_library ( gtest ${GTEST_ROOT}/src/gtest-all.cc )
@@ -76,6 +93,6 @@ else ()
     message ( STATUS "Google C++ Testing Framework not found in \"${GTEST_ROOT}\" tests will be disabled !" )
   endif ()
 
-  message ( STATUS "    get googlemock/googletest by: svn checkout http://googlemock.googlecode.com/svn/trunk/ \"${GMOCK_ROOT}\" " )
+  message ( STATUS "    get googlemock/googletest by: git clone https://github.com/google/googletest.git \"${THIRDPARTY_ROOT}/googletest\" " )
 
 endif ()
