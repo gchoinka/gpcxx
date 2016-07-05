@@ -29,4 +29,4 @@ RUN cd /opt/git/ && make -j8 && make prefix=/usr/local install
 RUN git clone --recurse-submodules --recursive --jobs 4 https://github.com/gchoinka/gpcxx.git /opt/gpcxx
 
 RUN cd /opt/gpcxx/third_party/boost && apt-get -y build-dep libboost-all-dev && apt-get -y install libbz2-dev && ./bootstrap.sh && ./b2 -j4 cxxflags=-std=c++14 
-RUN mkdi /opt/gpcxx/build && cd /opt/gpcxx/build && cmake .. -DGPCXX_BUILD_DOCS=0 -G Ninja && ninja
+RUN mkdir /opt/gpcxx/build && cd /opt/gpcxx/build && cmake .. -DGPCXX_BUILD_DOCS=0 -G Ninja && ninja
