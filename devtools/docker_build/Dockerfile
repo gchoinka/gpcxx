@@ -19,7 +19,6 @@ RUN apt-get  update && \
         gcc \
         g++ \
         git \
-        libboost-all-dev \
         doxygen \
         xsltproc
 
@@ -32,4 +31,4 @@ RUN git clone --recurse-submodules --recursive --jobs 4 https://github.com/gchoi
 RUN apt-get -y build-dep libboost-all-dev && \
     apt-get -y install libbz2-dev && \
     cd /opt/gpcxx/third_party/boost && ./bootstrap.sh && ./b2 -j4 cxxflags=-std=c++14
-RUN mkdir /opt/gpcxx/build && cd /opt/gpcxx/build && cmake .. -DGPCXX_BUILD_DOCS=0 -DGPCXX_BUILD_PERFORMANCE=0 -G Ninja && ninja && ninja test
+RUN mkdir /opt/gpcxx/build && cd /opt/gpcxx/build && cmake .. -DGPCXX_BUILD_DOCS=0 -G Ninja && ninja && ninja test
