@@ -121,6 +121,8 @@ if ( ${GPCXX_BUILD_TESTS} )
       message ( STATUS "Google C++ Testing Framework not found in \"${GTEST_ROOT}\" tests will be disabled !" )
     endif ()
 
-  message ( STATUS "    get googlemock/googletest by: git clone https://github.com/google/googletest.git \"${THIRDPARTY_ROOT}/googletest\" " )
+    message ( STATUS "    get googlemock/googletest by: git clone https://github.com/google/googletest.git \"${THIRDPARTY_ROOT}/googletest\" " )
+
+  endif ()
 
 endif ()
