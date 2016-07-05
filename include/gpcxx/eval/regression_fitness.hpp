@@ -13,7 +13,9 @@
 #define GPCXX_EVAL_REGRESSION_FITNESS_HPP_DEFINED
 
 #include <vector>
-
+#include <cmath>
+#include <cstddef>
+#include <array>
 
 namespace gpcxx {
 
@@ -23,7 +25,7 @@ struct regression_training_data
 {
     static const size_t dim = Dim;
     SequenceType y;
-    SequenceType x[dim];
+    std::array< SequenceType , dim > x;
 };
 
 template< typename Value , size_t Dim >
@@ -76,7 +78,8 @@ struct regression_fitness
     template< typename Tree , typename TrainingData >
     value_type operator()( Tree const & t , TrainingData const& c ) const
     {
-        return 1.0 - 1.0 / ( 1.0 + get_chi2( t , c ) );
+        value_type chi2 = get_chi2( t , c );
+        return ( std::isnan( chi2 ) ? 1.0 : 1.0 - 1.0 / ( 1.0 + chi2 ) );
     }
 };
 

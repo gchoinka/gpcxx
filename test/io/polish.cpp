@@ -64,7 +64,7 @@ protected:
             make_pair( "x" , make_pair( 0 , []() { return string( "x" ); } ) ) ,
             make_pair( "y" , make_pair( 0 , []() { return string( "y" ); } ) ) ,
             make_pair( "z" , make_pair( 0 , []() { return string( "z" ); } ) ) ,
-            make_pair( "2" , make_pair( 0 , []() { return string( "2" ); } ) ) 
+            make_pair( "2" , make_pair( 0 , []() { return string( "2" ); } ) )
         };
         
         m_basic_mapper = [this] ( std::string const& str ) -> basic_mapped_func {
@@ -95,6 +95,14 @@ protected:
     
     // void TearDown( void ) override  { }
 };
+
+TEST_F( TESTNAME , empty_tree )
+{
+    basic_tree< std::string > t;
+    ostringstream str;
+    str << polish( t );
+    EXPECT_EQ( str.str() , "" );
+}
 
 
 TEST_F( TESTNAME , polish_tree1_withseparator )
@@ -162,7 +170,7 @@ TEST_F( TESTNAME , read_basic_tree1 )
     string str( "plus|sin|x|minus|y|2" );
     read_polish( str , tree , m_basic_mapper , "|" );
     
-    EXPECT_EQ( tree.size() , 6 );
+    EXPECT_EQ( tree.size() , size_t( 6 ) );
     test_cursor( tree.root() , "plus" , 2 , 3 , 0 );
     test_cursor( tree.root().children(0) , "sin" , 1 , 2 , 1 );
     test_cursor( tree.root().children(0).children(0) , "x" , 0 , 1 , 2 );
@@ -183,7 +191,7 @@ TEST_F( TESTNAME , read_basic_tree2 )
     string str( "minus|cos|y|x" );
     read_polish( str , tree , m_basic_mapper , "|" );
     
-    EXPECT_EQ( tree.size() , 4 );
+    EXPECT_EQ( tree.size() , size_t( 4 ) );
     test_cursor( tree.root() , "minus" , 2 , 3 , 0 );
     test_cursor( tree.root().children(0) , "cos" , 1 , 2 , 1 );
     test_cursor( tree.root().children(0).children(0) , "y" , 0 , 1 , 2 );
@@ -191,6 +199,27 @@ TEST_F( TESTNAME , read_basic_tree2 )
     
     test_tree< basic_tree_tag > trees;
     EXPECT_TRUE( tree == trees.data2 );
+}
+
+TEST_F( TESTNAME , read_basic_tree3 )
+{
+    SCOPED_TRACE( "read_basic_tree3" );
+    
+    using tree_type = typename get_tree_type< basic_tree_tag >::type;
+    string str( "plus|sin|x|minus|y|2" );
+    auto tree = read_polish< tree_type >( str , m_basic_mapper , "|" );
+    
+    EXPECT_EQ( tree.size() , size_t( 6 ) );
+    test_cursor( tree.root() , "plus" , 2 , 3 , 0 );
+    test_cursor( tree.root().children(0) , "sin" , 1 , 2 , 1 );
+    test_cursor( tree.root().children(0).children(0) , "x" , 0 , 1 , 2 );
+    test_cursor( tree.root().children(1) , "minus" , 2 , 2 , 1 );
+    test_cursor( tree.root().children(1).children(0) , "y" , 0 , 1 , 2 );
+    test_cursor( tree.root().children(1).children(1) , "2" , 0 , 1 , 2 );
+    
+    test_tree< basic_tree_tag > trees;
+    EXPECT_TRUE( tree == trees.data );
+
 }
 
 
@@ -201,9 +230,9 @@ TEST_F( TESTNAME , read_intrusive_tree1 )
     
     auto tree = get_tree_type< intrusive_tree_tag >::type {};
     string str( "minus|cos|y|x" );
-    read_polish( str , tree , m_intrusive_mapper , "|" );
+    gpcxx::read_polish( str , tree , m_intrusive_mapper , "|" );
     
-    EXPECT_EQ( tree.size() , 4 );
+    EXPECT_EQ( tree.size() , size_t( 4 ) );
     test_cursor( tree.root() , "minus" , 2 , 3 , 0 );
     test_cursor( tree.root().children(0) , "cos" , 1 , 2 , 1 );
     test_cursor( tree.root().children(0).children(0) , "y" , 0 , 1 , 2 );
@@ -220,9 +249,9 @@ TEST_F( TESTNAME , read_intrusive_tree2 )
     
     auto tree = get_tree_type< intrusive_tree_tag >::type {};
     string str( "plus|sin|x|minus|y|2" );
-    read_polish( str , tree , m_intrusive_mapper , "|" );
+    gpcxx::read_polish( str , tree , m_intrusive_mapper , "|" );
     
-    EXPECT_EQ( tree.size() , 6 );
+    EXPECT_EQ( tree.size() , size_t( 6 ) );
     test_cursor( tree.root() , "plus" , 2 , 3 , 0 );
     test_cursor( tree.root().children(0) , "sin" , 1 , 2 , 1 );
     test_cursor( tree.root().children(0).children(0) , "x" , 0 , 1 , 2 );
@@ -243,7 +272,7 @@ TEST_F( TESTNAME , read_basic_tree1_with_brackets )
     string str( "[plus [sin x] [minus y 2]]" );
     read_polish( str , tree , m_basic_mapper , " " , "[" , "]" );
     
-    EXPECT_EQ( tree.size() , 6 );
+    EXPECT_EQ( tree.size() , size_t( 6 ) );
     test_cursor( tree.root() , "plus" , 2 , 3 , 0 );
     test_cursor( tree.root().children(0) , "sin" , 1 , 2 , 1 );
     test_cursor( tree.root().children(0).children(0) , "x" , 0 , 1 , 2 );
@@ -272,5 +301,5 @@ TEST_F( TESTNAME , read_basic_tree_marc )
         "(- z (- -0.5977164 x)))) -0.28946796) (+ "
         "y (+ -0.677738 (+ z y)))))))))" );
     read_polish( str , tree , m_basic_mapper , " " , "(" , ")" );
-    EXPECT_EQ( 111 , tree.size() );
+    EXPECT_EQ( size_t( 111 ) , tree.size() );
 }

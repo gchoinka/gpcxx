@@ -15,6 +15,7 @@
 #define GPCXX_EVAL_BASIC_EVAL_ERC_HPP_DEFINED
 
 #include <gpcxx/util/iterate_until.hpp>
+#include <gpcxx/util/exception.hpp>
 #include <gpcxx/generate/uniform_symbol.hpp>
 #include <gpcxx/generate/uniform_symbol_erc.hpp>
 
@@ -60,7 +61,7 @@ public:
     typedef boost::variant< value_type , symbol_type > node_attribute_type;
     
     
-    typedef uniform_symbol_erc< symbol_type , value_type , erc_dist_type , node_attribute_type > symbol_erc_distribution_type;
+    typedef uniform_symbol_erc< node_attribute_type , erc_dist_type > symbol_erc_distribution_type;
     typedef uniform_symbol< symbol_type > symbol_distribution_type;
 
     
@@ -226,9 +227,9 @@ private:
         else if( cursor.size() == 2 ) 
             found &= gpcxx::iterate_until( m_binaries , binary_evaluator< Cursor >( *this , result , context , cursor ) );
         else
-            throw std::runtime_error( "basic_eval::eval_cursor : Node with arity higher then two node supported!" );
+            throw gpcxx_exception( "basic_eval::eval_cursor : Node with arity higher then two node supported!" );
         
-        if( !found ) throw std::runtime_error( "basic_eval::eval_cursor : No rule found!" );
+        if( !found ) throw gpcxx_exception( "basic_eval::eval_cursor : No rule found!" );
         
         return result;
     }

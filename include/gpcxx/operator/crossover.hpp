@@ -12,29 +12,56 @@
 #ifndef GPCXX_OPERATOR_CROSSOVER_HPP_DEFINED
 #define GPCXX_OPERATOR_CROSSOVER_HPP_DEFINED
 
-#include <random>
+#include <gpcxx/operator/detail/operator_base.hpp>
+#include <gpcxx/util/assert.hpp>
+
+#include <utility>
+#include <vector>
+
 
 namespace gpcxx {
 
     
 template< typename Strategy , typename Selector >
-class crossover
+class crossover : public detail::operator_base< Strategy::arity >
 {
 public:
     
     crossover( Strategy strategy , Selector selector )
-    : m_strategy( strategy ) , m_selector( selector ) { }
+    : m_strategy( std::move( strategy ) ) , m_selector( std::move( selector ) ) { }
+    
     
     template< typename Pop , typename Fitness >
-    std::pair< typename Pop::value_type , typename Pop::value_type >
-    operator()( Pop &pop , Fitness &fitness )
+    std::vector< typename Pop::value_type >
+    operator()( Pop const& pop , Fitness const& fitness )
     {
-        typedef typename Pop::value_type individual_type;
-        individual_type node1 = m_selector( pop , fitness );
-        individual_type node2 = m_selector( pop , fitness );
-        if( ( !node1.empty() ) && ( ! node2.empty() ) )
-            m_strategy( node1 , node2 );
-        return std::make_pair( node1 , node2 );
+        auto sel = selection( pop , fitness );
+        return operation( sel );
+    }
+    
+    template< typename Pop , typename Fitness >
+    std::vector< typename Pop::const_iterator >
+    selection( Pop const& pop , Fitness const& fitness )
+    {
+        GPCXX_ASSERT( pop.size() > 2 );
+        std::vector< typename Pop::const_iterator > s(2);
+        s[1] = s[0] = m_selector( pop , fitness );
+        while( s[0] == s[1] )
+            s[1] = m_selector( pop , fitness );
+        return s;
+    }
+    
+    template< typename Selection >
+    std::vector< typename std::iterator_traits< typename Selection::value_type >::value_type >
+    operation( Selection const& selection )
+    {
+        GPCXX_ASSERT( selection.size() == 2 );
+        std::vector< typename std::iterator_traits< typename Selection::value_type >::value_type > nodes( 2 );
+        nodes[ 0 ] = *( selection[0] );
+        nodes[ 1 ] = *( selection[1] );
+        if( ( ! nodes[0].empty() ) && ( ! nodes[1].empty() ) )
+            m_strategy( nodes[0] , nodes[1] );
+        return nodes;
     }
     
 private:

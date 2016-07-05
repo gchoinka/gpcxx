@@ -6,9 +6,12 @@ include_directories ( ${gtest_SOURCE_DIR} )
 
 
 add_executable ( io_tests
+  bracket.cpp
   simple.cpp
   graphviz.cpp
   polish.cpp
+  json.cpp
+  population_json.cpp
   )
 
 target_link_libraries ( io_tests gtest gtest_main )

@@ -1,13 +1,8 @@
-[library gpcxx
+[article gpcxx
      [quickbook 1.5]
      [id gpcxx]
-     [dirname gpcxx]
      [authors [Ahnert, Karsten]]
-     [copyright 2013 Karsten Ahnert]
-     [category math]
-     [purpose 
-        Genetic programming.
-     ]
+     [copyright 2013-2014 Karsten Ahnert]
      [license
      Distributed under the Boost Software License, Version 1.0.
      (See accompanying file LICENSE_1_0.txt or copy
@@ -15,10 +10,7 @@
      ]
 ]
 
-
-
-
-
+[include config.qbk]
 
 
 [def __alpha '''&#945;''']
@@ -42,40 +34,50 @@
 [def __theta '''&#952;''']
 [def __Theta '''&#920;''']
 [def __xi '''&#958;''']
-
 [def __space '''&#8203;''']
-
-[def __gpcxx gpcxx]
-[def __gpcxx_github '''<ulink url="https://github.com/Ambrosys/gpcxx" target="_blank">github.com/Ambrosys/gpcxx</ulink>''']
-
 
 [template super[x]'''<superscript>'''[x]'''</superscript>''']
 [template sub[x]'''<subscript>'''[x]'''</subscript>''']
 [template subl[x]'''<subscript>'''__space[x]'''</subscript>''']
+[def __sum __Sigma]
 
-[template github_link[url text]'''<ulink url="https://github.com/headmyshoulder/odeint-v2/tree/master/'''[url]'''" target="_blank">'''[text]'''</ulink>''']
-[/ [template github_link[url text]'''<ulink url="../../../../../'''[url]'''" target="_blank">'''[text]'''</ulink>''']]
+[def __koza1_ref [link koza1 \[1\] ]]
+[def __wiki_santa_fe_trail_problem [@http://en.wikipedia.org/wiki/Santa_Fe_Trail_problem Wikipedia: Santa Fe Trail problem]]
 
+[def __gpcxx gpcxx]
+[def __gpcxx_github '''<ulink url="https://github.com/Ambrosys/gpcxx" target="_blank">github.com/Ambrosys/gpcxx</ulink>''']
+[def __concepts [link gpcxx.concepts Concepts]]
+[def __tree_concept [link gpcxx.concepts.tree Tree]]
+[def __cursor_concept [link gpcxx.concepts.cursor Cursor]]
+[def __tree_node_concept [link gpcxx.concepts.treenode TreeNode]]
+
+
+
+This is __gpcxx [gpcxx_version] build from commit [gpcxx_version_sha1].
 
 [include getting_started.qbk]
-
 [include tutorial.qbk]
 
 [section Genetic programming basics]
 
 [endsect]
 
-[section gpcxx in detail]
+[include details.qbk]
+[include examples_list.qbk]
+
+[section Performance results]
 
 [endsect]
 
 [include concepts.qbk]
 
-[xinclude reference.xml]
+[include literature.qbk]
+
+[/ [xinclude reference.xml] ]
 
 [section Index]
 
-[endsect]
+[endsect] 
 
 
 

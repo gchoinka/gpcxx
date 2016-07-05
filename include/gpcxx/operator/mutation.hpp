@@ -5,33 +5,58 @@
  * Author: Karsten Ahnert (karsten.ahnert@gmx.de)
  */
 
-#ifndef MUTATION_H_INCLUDED
-#define MUTATION_H_INCLUDED
+#ifndef GPCXX_OPERATOR_MUTATION_H_INCLUDED
+#define GPCXX_OPERATOR_MUTATION_H_INCLUDED
 
-#include <stdexcept>
-#include <random>
-#include <cassert>
+#include <gpcxx/operator/detail/operator_base.hpp>
+#include <gpcxx/util/assert.hpp>
+
+#include <utility>
+#include <vector>
+
 
 namespace gpcxx {
 
 template< typename Strategy , typename Selector >
-class mutation
+class mutation : public detail::operator_base< Strategy::arity >
 {
 public:
-
+    
     mutation( Strategy strategy , Selector selector )
-    : m_strategy( strategy ) , m_selector( selector ) { }
+    : m_strategy( std::move( strategy ) ) , m_selector( std::move( selector ) ) { }
 
     template< typename Pop , typename Fitness >
-    typename Pop::value_type
-    operator()( Pop &pop , Fitness &fitness )
+    std::vector< typename Pop::value_type >
+    operator()( Pop const& pop , Fitness const& fitness )
     {
-        typedef typename Pop::value_type individual_type;
-        individual_type node = m_selector( pop , fitness );
-        if( !node.empty() )
-            m_strategy( node );
-        return node;
+        std::vector< typename Pop::value_type > nodes( 1 );
+        nodes[0] = *( m_selector( pop , fitness ) );
+        if( ! nodes[0].empty() )
+            m_strategy( nodes[0] );
+        return nodes;
     }
+    
+    template< typename Pop , typename Fitness >
+    std::vector< typename Pop::const_iterator >
+    selection( Pop const& pop , Fitness const& fitness )
+    {
+        std::vector< typename Pop::const_iterator > s( 1 );
+        s[0] = m_selector( pop , fitness );
+        return s;
+    }
+    
+    template< typename Selection >
+    std::vector< typename std::iterator_traits< typename Selection::value_type >::value_type >
+    operation( Selection const& selection )
+    {
+        GPCXX_ASSERT( selection.size() == 1 );
+        std::vector< typename std::iterator_traits< typename Selection::value_type >::value_type > nodes( 1 );
+        nodes[ 0 ] = *( selection[0] );
+        if( ! nodes[0].empty() )
+            m_strategy( nodes[0] );
+        return nodes;
+    }
+
 
 private:
 
@@ -49,4 +74,4 @@ mutation< Strategy , Selector > make_mutation( Strategy strategy , Selector sele
 
 } // namespace gpcxx
 
-#endif // MUTATION_H_INCLUDED
+#endif // GPCXX_OPERATOR_MUTATION_H_INCLUDED

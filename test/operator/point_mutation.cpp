@@ -29,7 +29,7 @@ TYPED_TEST_CASE( point_mutation_tests , Implementations );
 
 TYPED_TEST( point_mutation_tests , instanciation )
 {
-    auto generator = make_basic_generate_strategy( this->m_gen.rng , this->m_gen.gen0 , this->m_gen.gen1 , this->m_gen.gen2 , 1 , 5 );
+    auto generator = make_basic_generate_strategy( this->m_gen.rng , this->m_gen.node_generator , 1 , 5 );
     auto strategy = make_point_mutation( this->m_gen.rng , generator , 5 , 128 );
 
     for( size_t i=0 ; i<1000 ; ++i )
@@ -37,6 +37,6 @@ TYPED_TEST( point_mutation_tests , instanciation )
         typename TestFixture::tree_type tree;
         generator( tree );
         strategy( tree );
-        EXPECT_LE( tree.root().height() , 5 );
+        EXPECT_LE( tree.root().height() , size_t( 5 ) );
     }
 }

@@ -12,8 +12,9 @@
 #ifndef GPCXX_STAT_POPULATION_STATISTICS_HPP_DEFINED
 #define GPCXX_STAT_POPULATION_STATISTICS_HPP_DEFINED
 
+#include <gpcxx/util/assert.hpp>
+
 #include <ostream>
-#include <cassert>
 #include <cmath>
 
 namespace gpcxx {
@@ -26,7 +27,7 @@ struct population_statistics
 template< typename Pop >
 population_statistics calc_population_statistics( Pop const& pop )
 {
-    assert( pop.size() > 0 );
+    GPCXX_ASSERT( pop.size() > 0 );
     
     size_t n = pop.size();
     
@@ -48,7 +49,7 @@ population_statistics calc_population_statistics( Pop const& pop )
     stat.number_nodes = nodes_mean;
     stat.nodes_stddev = std::sqrt( double( nodes_sq_mean ) / double( n ) - stat.nodes_mean * stat.nodes_mean );
     return stat;
-};
+}
 
     
 

@@ -11,8 +11,8 @@
 
 #include <gpcxx/io/simple.hpp>
 #include <gpcxx/tree/intrusive_tree.hpp>
-#include <gpcxx/tree/basic_intrusive_node.hpp>
-#include <gpcxx/tree/intrusive_func.hpp>
+#include <gpcxx/tree/intrusive_nodes/intrusive_func_node.hpp>
+#include <gpcxx/tree/intrusive_functions.hpp>
 #include <gpcxx/app/timer.hpp>
 
 #include <iostream>
@@ -35,7 +35,7 @@ using vector_type = std::vector< value_type >;
 using rng_type = std::mt19937;
 
 using context_type = std::array< double , 3 >;
-using node_type = gpcxx::basic_intrusive_node< double , context_type >;
+using node_type = gpcxx::intrusive_func_node< double , context_type >;
 
 using terminal_x = gpcxx::array_terminal< 0 >;
 using terminal_y = gpcxx::array_terminal< 1 >;
@@ -99,7 +99,7 @@ struct tree_transformator2 : public boost::static_visitor< void >
     tree_transformator2( tree_type &tree , cursor c ) : tree_( tree ) , c_( c ) { }
     
 
-    void operator()( qi::info::nil ) const {}
+    void operator()( nil ) const {}
     
     void operator()( char n ) const
     {

@@ -8,6 +8,7 @@
 
 #include <gpcxx/tree/basic_tree.hpp>
 #include <gpcxx/generate/uniform_symbol.hpp>
+#include <gpcxx/generate/node_generator.hpp>
 #include <gpcxx/generate/ramp.hpp>
 #include <gpcxx/operator/mutation.hpp>
 #include <gpcxx/operator/simple_mutation_strategy.hpp>
@@ -23,6 +24,7 @@
 #include <gpcxx/stat/population_statistics.hpp>
 #include <gpcxx/app/timer.hpp>
 #include <gpcxx/app/normalize.hpp>
+#include <gpcxx/app/generate_evenly_spaced_test_data.hpp>
 
 #include <boost/fusion/include/make_vector.hpp>
 
@@ -46,25 +48,6 @@ typedef std::vector< value_type > fitness_type;
 
 
 
-template< typename F >
-void generate_test_data( trainings_data_type &data, double rmin , double rmax , double stepsize , F f )
-{
-    data.x[0].clear(); data.x[1].clear(); data.x[2].clear(); data.y.clear();
-    
-    for( double xx = rmin ; xx <= rmax ; xx += stepsize )
-    {
-        for( double yy = rmin ; yy <= rmax ; yy += stepsize )
-        {
-            for( double zz = rmin ; zz <= rmax ; zz += stepsize )
-            {
-                data.x[0].push_back( xx );
-                data.x[1].push_back( yy );
-                data.x[2].push_back( zz );
-                data.y.push_back( f( xx , yy , zz ) );
-            }
-        }
-    }
-}
 
 
 namespace pl = std::placeholders;
@@ -74,8 +57,7 @@ int main( int argc , char *argv[] )
 {
     rng_type rng;
 
-    trainings_data_type c;
-    generate_test_data( c , -5.0 , 5.0 + 0.1 , 0.4 , []( double x1 , double x2 , double x3 ) {
+    trainings_data_type c = gpcxx::generate_evenly_spaced_test_data< 3 >( -5.0 , 5.0 + 0.1 , 0.4 , []( double x1 , double x2 , double x3 ) {
                         return  1.0 / ( 1.0 + pow( x1 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x2 , -4.0 ) ) + 1.0 / ( 1.0 + pow( x3 , -4.0 ) ); } );
     gpcxx::normalize( c.y );
     
@@ -117,7 +99,7 @@ int main( int argc , char *argv[] )
     double mutation_rate = 0.0;
     double crossover_rate = 0.6;
     double reproduction_rate = 0.3;
-    size_t min_tree_height = 1 , max_tree_height = 8;
+    size_t min_tree_height = 8 , max_tree_height = 8;
     size_t tournament_size = 15;
 
 
@@ -125,10 +107,12 @@ int main( int argc , char *argv[] )
     auto terminal_gen = eval.get_terminal_symbol_distribution();
     auto unary_gen = eval.get_unary_symbol_distribution();
     auto binary_gen = eval.get_binary_symbol_distribution();
-    std::array< double , 3 > weights = {{ 2.0 * double( terminal_gen.num_symbols() ) ,
-                                       double( unary_gen.num_symbols() ) ,
-                                       double( binary_gen.num_symbols() ) }};
-    auto tree_generator = gpcxx::make_ramp( rng , terminal_gen , unary_gen , binary_gen , max_tree_height , max_tree_height , 0.5 , weights );
+    gpcxx::node_generator< node_attribute_type , rng_type , 3 > node_generator {
+        { 2.0 * double( terminal_gen.num_symbols() ) , 0 , terminal_gen } ,
+        { double( unary_gen.num_symbols() ) , 1 , unary_gen } ,
+        { double( binary_gen.num_symbols() ) , 2 , binary_gen } };
+
+    auto tree_generator = gpcxx::make_ramp( rng , node_generator , min_tree_height , max_tree_height , 0.5 );
     
 
     evolver_type evolver( number_elite , mutation_rate , crossover_rate , reproduction_rate , rng );
@@ -138,7 +122,7 @@ int main( int argc , char *argv[] )
 
     auto fitness_f = gpcxx::regression_fitness< eval_type >( eval );
     evolver.mutation_function() = gpcxx::make_mutation(
-        gpcxx::make_simple_mutation_strategy( rng , terminal_gen , unary_gen , binary_gen ) ,
+        gpcxx::make_simple_mutation_strategy( rng , node_generator ) ,
         gpcxx::make_tournament_selector( rng , tournament_size ) );
     evolver.crossover_function() = gpcxx::make_crossover( 
         gpcxx::make_one_point_crossover_strategy( rng , max_tree_height ) ,

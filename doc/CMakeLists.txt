@@ -2,12 +2,24 @@ find_package ( Doxygen )
 find_package ( XSLTPROC )
 find_package ( QuickBook )
 
-
 if ( ${DOXYGEN_FOUND} AND ${XSLTPROC_FOUND} AND ${QuickBook_FOUND} )
 
 
 set ( catalog "${CMAKE_CURRENT_BINARY_DIR}/catalog.xml" )
 configure_file ( catalog.xml.in "${catalog}" )
+
+if( ${GPCXX_DOC_GITHUB_LINKS} )
+  set ( GPCXX_LINK_COMMAND "[template gpcxx_link[url text]'''<ulink url=\"https://github.com/Ambrosys/gpcxx/tree/master/'''[url]'''\" target=\"_blank\">'''[text]'''</ulink>''']" )
+else ()
+  set ( GPCXX_LINK_COMMAND "[template gpcxx_link[url text]'''<ulink url=\"../../../'''[url]'''\" target=\"_blank\">'''[text]'''</ulink>''']" )
+endif ()
+
+set ( GPCXX_VERSION_STRING "v${GPCXX_VERSION_MAJOR}.${GPCXX_VERSION_MINOR}.${GPCXX_VERSION_PATCH}" )
+
+
+message ( STATUS "Creating config file for documentation" )
+configure_file ( config.qbk.cmake config.qbk )
+
 
 set ( xml_dir "${CMAKE_CURRENT_BINARY_DIR}/xml" )
 set ( doxyfile "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile" )
@@ -24,40 +36,47 @@ file(WRITE "${doxyfile}"
   )
   
 
-add_custom_command(
-  OUTPUT
-    "${xml_dir}/index.xml"
-    "${xml_dir}/combine.xslt"
-  COMMAND
-    ${DOXYGEN_EXECUTABLE} ${doxyfile}
-  DEPENDS
-    "${CMAKE_SOURCE_DIR}/include/gpcxx"
-  )
-  
-# Collect Doxygen XML into a single XML file
-xsltproc(
-  INPUT "${xml_dir}/index.xml"
-  OUTPUT "${xml_dir}/all.xml"
-  STYLESHEET "${xml_dir}/combine.xslt"
-  )
+# add_custom_command(
+#   OUTPUT
+#     "${xml_dir}/index.xml"
+#     "${xml_dir}/combine.xslt"
+#   COMMAND
+#     ${DOXYGEN_EXECUTABLE} ${doxyfile}
+#   DEPENDS
+#     "${CMAKE_SOURCE_DIR}/include/gpcxx"
+#   )
+#   
+# # Collect Doxygen XML into a single XML file
+# xsltproc(
+#   INPUT "${xml_dir}/index.xml"
+#   OUTPUT "${xml_dir}/all.xml"
+#   STYLESHEET "${xml_dir}/combine.xslt"
+#   )
+# 
+#   # Transform single Doxygen XML file into BoostBook XML
+# xsltproc(
+#   INPUT "${xml_dir}/all.xml"
+#   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/reference.xml"
+#   STYLESHEET "${BOOSTBOOK_XSL_DIR}/doxygen/doxygen2boostbook.xsl"
+#   PARAMETERS "boost.doxygen.header.prefix=gpcxx"
+#   )
 
-  # Transform single Doxygen XML file into BoostBook XML
-xsltproc(
-  INPUT "${xml_dir}/all.xml"
-  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/reference.xml"
-  STYLESHEET "${BOOSTBOOK_XSL_DIR}/doxygen/doxygen2boostbook.xsl"
-  PARAMETERS "boost.doxygen.header.prefix=gpcxx"
-  )
+file ( GLOB_RECURSE QBK_FILES *.qbk )
+file ( GLOB_RECURSE EXAMPLE_FILES "../examples/*.cpp" )
+file ( GLOB_RECURSE IMAGE_FILES "images/*" )
 
+message ( STATUS "Qbk files for doc: ${QBK_FILES}" )
+message ( STATUS "Cpp files for doc: ${EXAMPLE_FILES}" )
 
-  
 add_custom_command ( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/gpcxx.qbk"
   COMMAND
     ${CMAKE_COMMAND} -E copy
     "${CMAKE_CURRENT_SOURCE_DIR}/gpcxx.qbk"
     "${CMAKE_CURRENT_BINARY_DIR}/gpcxx.qbk"
   DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/gpcxx.qbk"
+    ${QBK_FILES}
+    ${EXAMPLE_FILES}
+    ${IMAGE_FILES}
   )
 
 add_custom_command ( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/gpcxx.xml"
@@ -68,8 +87,10 @@ add_custom_command ( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/gpcxx.xml"
     --include-path "${CMAKE_CURRENT_SOURCE_DIR}"
     --output-file "${CMAKE_CURRENT_BINARY_DIR}/gpcxx.xml"
   DEPENDS
+    ${QBK_FILES}
     "${CMAKE_CURRENT_BINARY_DIR}/gpcxx.qbk"
-    "${CMAKE_CURRENT_BINARY_DIR}/reference.xml"
+    "${CMAKE_CURRENT_BINARY_DIR}/config.qbk"
+#     "${CMAKE_CURRENT_BINARY_DIR}/reference.xml"
   )
   
 add_custom_command ( OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/html/boostbook.css"
@@ -103,14 +124,33 @@ xsltproc(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/html/index.html"
   CATALOG "${catalog}"
   STYLESHEET "${BOOSTBOOK_XSL_DIR}/xhtml.xsl"
+  PARAMETERS chunk.section.depth="2" chunk.first.sections="1" toc.section.depth="2" toc.max.depth="2" generate.section.toc.level="3"
   )
 
 add_custom_target ( documentation
+  ALL
   DEPENDS
   "${CMAKE_CURRENT_BINARY_DIR}/html/index.html"
   "${CMAKE_CURRENT_BINARY_DIR}/html/boostbook.css"
   "${CMAKE_CURRENT_BINARY_DIR}/html/images" 
   )
+
+
+set ( GH_PAGES_PATH "${CMAKE_CURRENT_BINARY_DIR}/gh-pages" )
+set ( REPO_PATH "git@github.com:Ambrosys/gpcxx.git" )
+message ( STATUS "Creating gh-pages directory in ${GH_PAGES_PATH}" )
+add_custom_target ( public-gh-pages 
+  COMMAND ${CMAKE_COMMAND} -E remove_directory ${GH_PAGES_PATH}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${GH_PAGES_PATH}
+  COMMAND git clone -b gh-pages "${REPO_PATH}" --single-branch ${GH_PAGES_PATH}
+  COMMAND ${CMAKE_COMMAND} -E remove_directory ${GH_PAGES_PATH}/doc
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${GH_PAGES_PATH}/doc
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_BINARY_DIR}/html ${GH_PAGES_PATH}/doc
+  COMMAND ${CMAKE_COMMAND} -E chdir ${GH_PAGES_PATH}/doc git add -A
+  COMMAND ${CMAKE_COMMAND} -E chdir ${GH_PAGES_PATH}/doc git commit -m "adding current documentation version"
+  COMMAND ${CMAKE_COMMAND} -E chdir ${GH_PAGES_PATH}/doc git push origin gh-pages
+  COMMAND ${CMAKE_COMMAND} -E remove_directory ${GH_PAGES_PATH}
+)
 
 
 else ()

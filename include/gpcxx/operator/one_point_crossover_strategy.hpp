@@ -7,6 +7,8 @@
 #ifndef ONE_POINT_CROSSOVER_STRATEGY_H_INCLUDED
 #define ONE_POINT_CROSSOVER_STRATEGY_H_INCLUDED
 
+#include <gpcxx/operator/detail/operator_base.hpp>
+#include <gpcxx/tree/cursor_equal.hpp>
 
 #include <random>
 #include <stdexcept>
@@ -17,7 +19,7 @@
 namespace gpcxx {
 
 template< typename Rng >
-class one_point_crossover_strategy
+class one_point_crossover_strategy : public detail::operator_base< 2 >
 {
 public:
     
@@ -26,32 +28,31 @@ public:
     
 
     template< class Tree >
-    void operator()( Tree &t1 , Tree &t2 )
+    bool operator()( Tree &t1 , Tree &t2 )
     {
         typedef typename Tree::cursor cursor;
 
         std::uniform_int_distribution< size_t > dist1( 0 , t1.size() - 1 );
         std::uniform_int_distribution< size_t > dist2( 0 , t2.size() - 1 );
 
-        bool good = true;
-        size_t iter = 0;
-        cursor n1  , n2 ;
-        do
+        for( size_t iter = 0 ; iter < m_max_iterations ; ++iter )
         {
-            size_t i1 = dist1( m_rng );
-            size_t i2 = dist2( m_rng );
+            cursor n1 = t1.rank_is( dist1( m_rng ) );
+            cursor n2 = t2.rank_is( dist2( m_rng ) );
+            if( cursor_equal( n1 , n2 ) )
+            {
+                continue;
+            }
 
-            n1 = t1.rank_is( i1 );
-            n2 = t2.rank_is( i2 );
-
-            size_t nh1 = n1.level() + n2.height() - 1;
-            size_t nh2 = n2.level() + n1.height() - 1;
-            good = ( ( nh1 <= m_max_height ) && ( nh2 <= m_max_height ) );
+            size_t nh1 = n1.level() + n2.height();
+            size_t nh2 = n2.level() + n1.height();
+            if( ( nh1 <= m_max_height ) && ( nh2 <= m_max_height ) )
+            {
+                swap_subtrees( t1 , n1 , t2 , n2 );
+                return true;
+            }
         }
-        while( ( iter < m_max_iterations ) && ( good == false ) );
-
-        if( good )
-            swap_subtrees( t1 , n1 , t2 , n2 );
+        return false;
     }
     
 private:

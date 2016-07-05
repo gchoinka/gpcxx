@@ -1,0 +1,12 @@
+version: '{build}'
+
+install:
+- cinst cmake
+
+build_script:
+- mkdir build
+- cd build
+- cmake ..
+- cmake --build .
+- ctest
+

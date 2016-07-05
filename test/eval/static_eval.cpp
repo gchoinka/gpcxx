@@ -101,14 +101,14 @@ TEST( TESTNAME , test2 )
     
     context_type context1 = {{ 0.5 * boost::math::double_constants::pi , 3.5 }};
     EXPECT_THROW( 
-        double val1 = eval( trees.data , context1 )
-        , std::runtime_error );
+        /* double val1 = */ eval( trees.data , context1 )
+        , gpcxx::gpcxx_exception );
     
     
     context_type context2 = {{ 5.0 , boost::math::double_constants::pi }};
     EXPECT_THROW(
-        double val2 = eval( trees.data2 , context2 )
-        , std::runtime_error );
+        /* double val2 = */ eval( trees.data2 , context2 )
+        , gpcxx::gpcxx_exception );
     
 }
 

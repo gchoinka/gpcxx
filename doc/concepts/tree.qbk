@@ -31,11 +31,28 @@ The tree concept.
 
 [table
   [[Name] [Expression] [Type] [Semantics]]
-  [[Get cursor to root node.] [`stepper.root()`] [`Cursor`] [Returns a cursor to the root node of the tree.]]
+  [[Get cursor to root node.] [`tree.root()`] [`Cursor`] [Returns a cursor to the root node of the tree.]]
+  [[Get const cursor to root node.] [`tree.root()`] [`ConstCursor`] [Returns a const cursor to the root node of the tree.]]
+  [[Get const cursor to root node.] [`tree.croot()`] [`ConstCursor`] [Returns a const cursor to the root node of the tree.]]
+  [[tba.] [`tree.rank_is(i)`] [`Cursor`] [tba.]]
+  [[tba.] [`tree.rank_is(i)`] [`ConstCursor`] [tba.]]
+  [[tba.] [`tree.insert_below(c,n)`] [`Cursor`] [tba.]]
+  [[tba.] [`tree.insert_below(c,n)`] [`Cursor`] [tba.]]
+  [[tba.] [`tree.assign(o)`] [`void`] [tba.]]
+  [[tba.] [`tree.erase(c)`] [`void`] [tba.]]
+  [[tba.] [`tree.clear()`] [`void`] [tba.]]
+  [[tba.] [`tree.swap(t2)`] [`void`] [tba.]]
+  [[tba.] [`tree.swap_subtrees(c,t2,o)`] [`void`] [tba.]]
 ]
 
 [heading Models]
 
 * `basic_tree`
+* `intrusice_tree`
+
+[heading See also]
+
+* __cursor_concept
+* __tree_node_concept
 
 [endsect]

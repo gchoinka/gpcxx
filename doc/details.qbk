@@ -1,0 +1,31 @@
+[section gpcxx in detail]
+
+[include details_trees.qbk]
+[include details_io.qbk]
+
+[section Genetic operations on trees]
+
+mutation - pictures
+
+crossover - pictures
+
+tree generation - pictures
+
+[endsect]
+
+[include details_fitness.qbk]
+
+[section Evaluation of trees]
+
+later
+
+[endsect]
+
+[/
+[section Transformations and simplification of trees]
+
+[endsect]
+]
+
+
+[endsect]

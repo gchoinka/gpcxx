@@ -13,7 +13,9 @@
 #define GPCXX_EVAL_STATIC_EVAL_HPP_DEFINED
 
 #include <gpcxx/util/iterate_until.hpp>
+#include <gpcxx/util/exception.hpp>
 #include <gpcxx/generate/uniform_symbol.hpp>
+#include <gpcxx/generate/node_generator.hpp>
 
 #include <boost/fusion/include/is_sequence.hpp>
 #include <boost/fusion/include/for_each.hpp>
@@ -22,7 +24,6 @@
 #include <boost/fusion/include/make_vector.hpp>
 #include <boost/concept_check.hpp>
 
-#include <stdexcept>
 #include <vector>
 #include <array>
 
@@ -49,8 +50,12 @@ public:
     typedef UnaryAttributes unary_attributes_type;
     typedef BinaryAttributes binary_attribtes_type;
     typedef symbol_type node_attribute_type;
-    
+ 
     typedef uniform_symbol< symbol_type > symbol_distribution_type;
+    
+    template< typename Rng >
+    using node_generator_type = node_generator< symbol_type , Rng , 3 , value_type >;
+
     
     static_eval( terminal_attribtes_type const& terminals , unary_attributes_type const& unaries , binary_attribtes_type const& binaries )
     : m_terminals( terminals ) , m_unaries( unaries ) , m_binaries( binaries ) { }
@@ -89,6 +94,15 @@ public:
     symbol_distribution_type get_binary_symbol_distribution( void ) const
     {
         return symbol_distribution_type( get_binary_symbols() );
+    }
+
+    template< typename Rng >
+    node_generator_type< Rng > get_node_generator( void ) const
+    {
+        return node_generator_type< Rng >(
+            get_terminal_symbol_distribution() ,
+            get_unary_symbol_distribution() ,
+            get_binary_symbol_distribution() );
     }
    
 private:
@@ -197,9 +211,9 @@ private:
         else if( cursor.size() == 2 ) 
             found &= gpcxx::iterate_until( m_binaries , binary_evaluator< Cursor >( *this , result , context , cursor ) );
         else
-            throw std::runtime_error( "basic_eval::eval_cursor : Node with arity higher then two node supported!" );
+            throw gpcxx_exception( "basic_eval::eval_cursor : Node with arity higher then two node supported!" );
         
-        if( !found ) throw std::runtime_error( "basic_eval::eval_cursor : No rule found!" );
+        if( !found ) throw gpcxx_exception( "basic_eval::eval_cursor : No rule found!" );
         
         return result;
     }

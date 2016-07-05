@@ -6,6 +6,9 @@ include_directories ( ${gtest_SOURCE_DIR} )
 
 
 add_executable ( eval_tests
+  adjusted_fitness.cpp
+  hits.cpp
+  normalized_fitness.cpp
   static_eval.cpp
   static_eval_erc.cpp
   )

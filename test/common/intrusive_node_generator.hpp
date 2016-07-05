@@ -12,12 +12,19 @@
 #ifndef GPCXX_TEST_COMMON_INTRUSIVE_NODE_GENERATOR_HPP_INCLUDED
 #define GPCXX_TEST_COMMON_INTRUSIVE_NODE_GENERATOR_HPP_INCLUDED
 
-#include <gpcxx/tree/intrusive_func.hpp>
-
-#include <stdexcept>
+#include <gpcxx/tree/intrusive_functions.hpp>
+#include <gpcxx/util/exception.hpp>
 
 using namespace gpcxx;
 
+struct plus3_func
+{
+    template< typename Context , typename Node >
+    inline typename Node::result_type operator()( Context const& c , Node const& node ) const
+    {
+        return node.child( 0 ).eval( c ) + node.child( 1 ).eval( c ) + node.child( 2 ).eval( c );
+    }
+};
 
 template< typename Node >
 struct intrusive_node_generator
@@ -27,6 +34,7 @@ struct intrusive_node_generator
     node_type operator()( std::string const& s ) const
     {
         if( s == "plus" ) return node_type( plus_func() , "plus" );
+        if( s == "plus3" ) return node_type( plus3_func() , "plus3" );
         if( s == "minus" ) return node_type( minus_func() , "minus" );
         if( s == "multiplies" ) return node_type( minus_func() , "multiplies" );
         if( s == "+" ) return node_type( plus_func() , "+" );
@@ -70,7 +78,7 @@ struct intrusive_node_generator
         }
         
         
-        throw std::runtime_error( std::string( "No node for " ) + s + " found!" );
+        throw gpcxx::gpcxx_exception( std::string( "No node for " ) + s + " found!" );
     }
 };
 
