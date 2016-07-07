@@ -16,7 +16,7 @@
 
 #include <gpcxx/tree.hpp>
 #include <gpcxx/intrusive_nodes.hpp>
-
+#include <gpcxx/io/simple.hpp>
 #include <vector>
 
 
@@ -113,5 +113,16 @@ struct ant_turn_right_task_terminal
     
 } // namespace ant_example
 
+namespace std
+{
+    template <>
+    struct hash<ant_example::tree_type>
+    {
+        size_t operator()(ant_example::tree_type const & x) const noexcept
+        {
+            return std::hash<std::string>()( gpcxx::simple_string( x ) );
+        }
+    };
+}
 
 #endif // GPCXX_EXAMPLES_ARTIFICIAL_ANT_ANT_SIMULATION_NODES_HPP_INCLUDED

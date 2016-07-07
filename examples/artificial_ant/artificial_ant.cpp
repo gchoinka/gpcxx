@@ -53,6 +53,7 @@ bool ant_move_test()
 //]
 
 
+
 int main( int argc , char *argv[] )
 {
     using namespace ant_example;
@@ -106,15 +107,32 @@ int main( int argc , char *argv[] )
     size_t const max_tree_height = 17;
     size_t const tournament_size = 4;
     //]
-        
+
+ 
     population_type population;
     population.reserve( population_size );
-    
+
     //[tree_generator
     auto tree_generator      = gpcxx::make_basic_generate_strategy( rng , node_generator , min_tree_height , max_tree_height );
     auto init_tree_generator = gpcxx::make_basic_generate_strategy( rng , node_generator , min_tree_height , init_max_tree_height );
-    for( auto & individum :  population )
-        init_tree_generator( individum );
+    
+    {
+        std::unordered_set<population_type::value_type> unique_init_population;
+
+        auto const unique_collision_clearance_factor = 3;
+        auto iteration = 0u;
+	auto const max_iteration = unsigned(population_size * unique_collision_clearance_factor);
+        while( unique_init_population.size() < population_size && iteration++ < max_iteration )
+        {
+            population_type::value_type individum;
+            init_tree_generator( individum );
+            unique_init_population.insert( std::move( individum ) );
+        }
+        if ( unique_init_population.size() != population_size )
+            throw gpcxx::gpcxx_exception( "Could not create tree " );
+        for( auto & p : unique_init_population )
+            population.emplace_back( std::move( p ) );
+    }
     //]
     
      //[evolver_definition
