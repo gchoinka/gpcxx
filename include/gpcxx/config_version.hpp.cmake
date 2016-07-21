@@ -6,6 +6,8 @@
   Distributed under the Boost Software License, Version 1.0.
   (See accompanying file LICENSE_1_0.txt or
   copy at http://www.boost.org/LICENSE_1_0.txt)
+
+  This is a template file filled with values by cmake and git, then placed in ${CMAKE_BINARY_DIR}/GeneratedIncludes e.g. ../../build/GeneratedIncludes
 */
 
 

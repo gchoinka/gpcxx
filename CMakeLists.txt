@@ -36,6 +36,8 @@ if ( ${GPCXX_TEST_COVERAGE} )
   set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage" )
 endif ()
 
+set ( GENERATED_INCLUDES_DIR  ${CMAKE_BINARY_DIR}/generated_includes )
+
 include ( CreateVersionFile )
 include ( ForwardingHeader )
 include ( CheckHeaders )
@@ -44,12 +46,18 @@ message ( STATUS "Building project ${CMAKE_PROJECT_NAME}" )
 message ( STATUS "Version ${GPCXX_VERSION_SHORT}" )
 
 set ( BOOST_ROOT    "${THIRDPARTY_ROOT}/boost" )
-find_package ( Boost REQUIRED COMPONENTS thread system program_options )
+set ( BOOST_MIN_VERSION "1.61.0")
+set ( Boost_NO_SYSTEM_PATHS TRUE )
+find_package ( Boost ${BOOST_MIN_VERSION} REQUIRED COMPONENTS thread system program_options )
+
+message ( STATUS "Found boost include directory : ${Boost_INCLUDE_DIRS}" )
+message ( STATUS "Found boost library : ${Boost_LIBRARIES}" )
+
 
 include_directories ( SYSTEM ${Boost_INCLUDE_DIRS} )
 include_directories ( ${CMAKE_CURRENT_SOURCE_DIR}/include )
 
-create_forwarding_header ( include/gpcxx/app.hpp include/gpcxx/app )
+create_forwarding_header ( ${GENERATED_INCLUDES_DIR}/include/gpcxx/app.hpp include/gpcxx/app )
 create_forwarding_header ( include/gpcxx/benchmark_problems.hpp include/gpcxx/app/benchmark_problems )
 create_forwarding_header ( include/gpcxx/primitive_sets.hpp include/gpcxx/app/primitive_sets )
 create_forwarding_header ( include/gpcxx/eval.hpp include/gpcxx/eval )

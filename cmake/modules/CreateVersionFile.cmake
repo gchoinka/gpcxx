@@ -5,9 +5,9 @@ if ( NOT EXISTS "${CMAKE_SOURCE_DIR}/.git/" )
   return ()
 endif ()
 
+file ( MAKE_DIRECTORY ${GENERATED_INCLUDES_DIR}/include )
 
-
-set ( GPCXX_VERSION_FILE ${CMAKE_SOURCE_DIR}/include/gpcxx/config_version.hpp )
+set ( GPCXX_VERSION_FILE ${GENERATED_INCLUDES_DIR}/include/gpcxx/config_version.hpp )
 set ( GPCXX_VERSION_FILE_TEMPLATE ${CMAKE_SOURCE_DIR}/include/gpcxx/config_version.hpp.cmake )
 
 execute_process ( COMMAND git describe --tags --abbrev=4 --match v*.* HEAD
@@ -46,6 +46,8 @@ if ( ( NOT ( GPCXX_GIT_STATUS STREQUAL "" ) ) OR ( NOT EXISTS ${GPCXX_VERSION_FI
 
   message ( STATUS "generating new version file ${GPCXX_VERSION_FILE} from ${GPCXX_VERSION_FILE_TEMPLATE}" )
   configure_file ( ${GPCXX_VERSION_FILE_TEMPLATE} ${GPCXX_VERSION_FILE}  )
+
+  include_directories ( ${GENERATED_INCLUDES_DIR}/include )
 
 endif ()
 
