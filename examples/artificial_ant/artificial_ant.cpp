@@ -25,6 +25,7 @@
 #include <sstream>
 #include <random>
 #include <algorithm>
+#include <iterator>
 #include <unordered_set>
 #include <chrono>
 
@@ -110,7 +111,6 @@ int main( int argc , char *argv[] )
 
  
     population_type population;
-    population.reserve( population_size );
 
     //[tree_generator
     auto tree_generator      = gpcxx::make_basic_generate_strategy( rng , node_generator , min_tree_height , max_tree_height );
@@ -121,7 +121,7 @@ int main( int argc , char *argv[] )
 
         auto const unique_collision_clearance_factor = 3;
         auto iteration = 0u;
-	auto const max_iteration = unsigned(population_size * unique_collision_clearance_factor);
+        auto const max_iteration = unsigned(population_size * unique_collision_clearance_factor);
         while( unique_init_population.size() < population_size && iteration++ < max_iteration )
         {
             population_type::value_type individum;
@@ -129,9 +129,9 @@ int main( int argc , char *argv[] )
             unique_init_population.insert( std::move( individum ) );
         }
         if ( unique_init_population.size() != population_size )
-            throw gpcxx::gpcxx_exception( "Could not create tree " );
-        for( auto & p : unique_init_population )
-            population.emplace_back( std::move( p ) );
+            throw gpcxx::gpcxx_exception( "Could not create unique population with the requested size" );
+        population = population_type{ std::make_move_iterator( begin( unique_init_population ) ) , std::make_move_iterator( end( unique_init_population ) ) };
+
     }
     //]
     
