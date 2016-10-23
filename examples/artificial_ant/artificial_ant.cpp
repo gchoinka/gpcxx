@@ -130,8 +130,9 @@ int main( int argc , char *argv[] )
         }
         if ( unique_init_population.size() != population_size )
             throw gpcxx::gpcxx_exception( "Could not create unique population with the requested size" );
-        population = population_type{ std::make_move_iterator( begin( unique_init_population ) ) , std::make_move_iterator( end( unique_init_population ) ) };
-
+        //population = population_type{ std::make_move_iterator( begin( unique_init_population ) ) , std::make_move_iterator( end( unique_init_population ) ) };
+        //std::make_move_iterator( begin( ... ) ) clang 3.6 does have an issue with this https://llvm.org/bugs/show_bug.cgi?id=19917
+        population = population_type{ begin( unique_init_population ) , end( unique_init_population ) };
     }
     //]
     
