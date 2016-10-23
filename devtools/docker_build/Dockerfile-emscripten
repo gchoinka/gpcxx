@@ -1,0 +1,31 @@
+FROM ambrosys/gpcxx
+
+MAINTAINER Gerard Choinka <gerard.choinka@gmail.com>
+
+#docker build --build-arg N_BUILD_JOBS=4 -f Dockerfile-emscripten -t ambrosys/gpcxx-emscripten .
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV TERM xterm
+RUN locale-gen --no-purge en_US.UTF-8
+ENV LC_ALL en_US.UTF-8
+RUN update-locale LANG=en_US.UTF-8
+
+ARG N_BUILD_JOBS=1
+
+RUN apt-get update && \
+    apt-get -y install wget
+
+RUN wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz -O /opt/emsdk-portable.tar.gz && \
+    tar xf /opt/emsdk-portable.tar.gz -C /opt/ && \
+    rm /opt/emsdk-portable.tar.gz && \
+    cd /opt/emsdk_portable/ && \
+    ./emsdk update && \
+    ./emsdk install latest && \
+    ./emsdk activate latest
+
+RUN cd /opt/emsdk_portable/ && source ./emsdk_env.sh && \
+    mkdir -p /opt/gpcxx/build/emscripten/ && \
+    cd /opt/gpcxx/build/emscripten/ && \
+	cmake ../../ -DCMAKE_CXX_COMPILER=em++ -DCMAKE_C_COMPILER=emcc -DGPCXX_BUILD_DOCS=0 -DGPCXX_BUILD_TESTS=0 -G Ninja && \
+        cmake --build .
+

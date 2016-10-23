@@ -45,7 +45,7 @@ include ( CheckHeaders )
 message ( STATUS "Building project ${CMAKE_PROJECT_NAME}" )
 message ( STATUS "Version ${GPCXX_VERSION_SHORT}" )
 
-set ( BOOST_ROOT    "${THIRDPARTY_ROOT}/boost" )
+set ( BOOST_ROOT    "${THIRDPARTY_ROOT}/install" )
 set ( BOOST_MIN_VERSION "1.61.0")
 set ( Boost_NO_SYSTEM_PATHS TRUE )
 find_package ( Boost ${BOOST_MIN_VERSION} REQUIRED COMPONENTS thread system program_options )
@@ -56,6 +56,7 @@ message ( STATUS "Found boost library : ${Boost_LIBRARIES}" )
 
 include_directories ( SYSTEM ${Boost_INCLUDE_DIRS} )
 include_directories ( ${CMAKE_CURRENT_SOURCE_DIR}/include )
+include_directories ( ${GENERATED_INCLUDES_DIR}/include )
 
 create_forwarding_header ( ${GENERATED_INCLUDES_DIR}/include/gpcxx/app.hpp include/gpcxx/app )
 create_forwarding_header ( include/gpcxx/benchmark_problems.hpp include/gpcxx/app/benchmark_problems )
