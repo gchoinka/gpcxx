@@ -1,10 +1,17 @@
 # Date: 2013-01-25
 # Author: Karsten Ahnert (karsten.ahnert@gmx.de)
 
+
+cmake_minimum_required ( VERSION 3.9.2 )
+
+include("cmake/HunterGate.cmake")
+
+HunterGate(
+    URL "https://github.com/ruslo/hunter/archive/v0.23.17.tar.gz"
+    SHA1 "a438452aa14fc5cbd58f080eee45f07351b27d2f"
+)
+
 project ( gpcxx )
-
-cmake_minimum_required ( VERSION 2.8 )
-
 
 set ( THIRDPARTY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party" )
 
@@ -23,7 +30,7 @@ set ( CMAKE_MODULE_PATH
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules
   )
 
-set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Wpedantic -pedantic -Werror" )
+set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wpedantic -pedantic -Werror" )
 
 if ( "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
   set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++" )
@@ -48,6 +55,7 @@ message ( STATUS "Version ${GPCXX_VERSION_SHORT}" )
 set ( BOOST_ROOT    "${THIRDPARTY_ROOT}/install" )
 set ( BOOST_MIN_VERSION "1.61.0")
 set ( Boost_NO_SYSTEM_PATHS TRUE )
+hunter_add_package(Boost COMPONENTS thread system program_options)
 find_package ( Boost ${BOOST_MIN_VERSION} REQUIRED COMPONENTS thread system program_options )
 
 message ( STATUS "Found boost include directory : ${Boost_INCLUDE_DIRS}" )

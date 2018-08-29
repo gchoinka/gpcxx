@@ -28,12 +28,243 @@
 #include <iterator>
 #include <unordered_set>
 #include <chrono>
-
+#include <boost/variant.hpp>
+#include <boost/mpl/for_each.hpp>
+#include <array>
 
 #include <fstream>
 
+namespace n
+{
+    
+struct move;
+struct right;
+struct left;
+struct if_food_ahead;
+template<int nodeCount> struct prog;
+
+using ant_nodes = boost::variant<
+    boost::recursive_wrapper<move>, 
+    boost::recursive_wrapper<left>, 
+    boost::recursive_wrapper<right>, 
+    boost::recursive_wrapper<if_food_ahead>, 
+    boost::recursive_wrapper<prog<2>>, 
+    boost::recursive_wrapper<prog<3>>
+>;
 
 
+
+template<int NodeCount>
+struct prog
+{
+    constexpr static std::array<char const * const, 4> CountToName{"", "", "p2", "p3"}; 
+    
+    constexpr static auto name = CountToName[NodeCount]; 
+    
+    template<typename ... Args>
+    prog(Args && ... args)
+        :nodes{std::forward<Args>(args)...}{}
+    std::array<ant_nodes, NodeCount> nodes;
+};
+
+struct move : public prog<0>
+{
+    constexpr static auto name = "m";
+    
+};
+
+struct right : public prog<0>
+{
+    constexpr static auto name = "r";    
+};
+
+struct left : public prog<0>
+{
+    constexpr static auto name = "l";   
+};
+
+struct if_food_ahead : public prog<2>
+{
+    constexpr static auto name = "?";  
+    using prog<2>::prog;
+
+    constexpr ant_nodes const & get(bool b) const
+    {
+        return b ? get<true>() : get<false>();
+    }
+    
+    template<bool c>
+    constexpr ant_nodes const & get() const
+    {
+        return nodes[c?0:1];
+    }
+};
+
+namespace detail
+{
+    template<typename Iter>
+    ant_nodes factory_imp(Iter &);
+
+    template<typename Iter>
+    using FactoryMap = std::unordered_map<std::string, std::function<ant_nodes(Iter &)>>;
+
+    
+    template<typename Iter>
+    struct InsertHelper 
+    {
+        FactoryMap<Iter> & factoryMap; 
+        
+        template<class T> 
+        void operator()(T) 
+        {
+            factoryMap[T::name] = [](Iter & tokenIter) 
+            {
+                T ret;
+                for(auto & n: ret.nodes)
+                    n = factory_imp(++tokenIter);
+                return ret; 
+            };
+        }
+    };
+
+    template<typename Iter>
+    FactoryMap<Iter> makeFactoryMap()
+    {
+        FactoryMap<Iter> factoryMap;
+        auto insertHelper = InsertHelper<Iter>{factoryMap};
+        boost::mpl::for_each<ant_nodes::types>(insertHelper);
+        return factoryMap;
+    }
+
+    template<typename Iter>
+    ant_nodes factory_imp(Iter & tokenIter)
+    {
+        static auto nodeCreateFunMap = makeFactoryMap<Iter>();
+        return nodeCreateFunMap[*tokenIter](tokenIter);
+    }
+}
+
+
+template<typename Iter>
+ant_nodes factory(Iter tokenIter)
+{
+    return detail::factory_imp(tokenIter);
+}
+
+
+template<typename StringT>
+struct printer : public boost::static_visitor<StringT>
+{
+public:
+    
+    template<typename T>
+    StringT operator()(T const & b) const
+    {
+        char const * delimiter = "";
+        char const * begin_delimiter = "";
+        char const * end_delimiter = "";
+        StringT children;
+        for(auto const & n: b.nodes)
+        {
+            children += delimiter + boost::apply_visitor( *this, n );
+            delimiter = ", ";
+            begin_delimiter = "(";
+            end_delimiter = ")";
+        }
+        return StringT{T::name} + begin_delimiter + children + end_delimiter;
+    }
+};
+
+template<typename StringT>
+struct RPNPrinter : public boost::static_visitor<StringT>
+{
+    template<typename T>
+    StringT operator()(T const & b) const
+    {
+        StringT children;
+        for(auto const & n: b.nodes)
+        {
+            children = boost::apply_visitor( *this, n ) + " " + children;
+        }
+        return children + T::name;
+    }
+};
+
+using cordinate = struct{ int x,y; }; 
+
+bool operator==(cordinate const & lhs, cordinate const & rhs)
+{
+        return lhs.x == rhs.x && lhs.y == rhs.y;
+}
+
+struct direction
+{
+    static constexpr cordinate north{1,0};
+    static constexpr cordinate east{0,1};
+    static constexpr cordinate south{-1,0};
+    static constexpr cordinate west{0,-1};
+    
+    static cordinate rotateLeft(cordinate c)
+    {
+        if(c == north) return west;
+        if(c == west) return south;
+        if(c == south) return east;
+        if(c == east) return north;
+    }
+    
+    static cordinate rotateRight(cordinate c)
+    {
+        if(c == north) return east;
+        if(c == east) return south;
+        if(c == south) return west;
+        if(c == west) return north;
+    }
+};
+
+
+
+
+class calculator : public boost::static_visitor<void>
+{
+public:
+    calculator(ant_example::ant_simulation & sim):sim_{sim} {} 
+
+    
+    void operator()(move) const
+    {
+        sim_.move();
+    }
+    
+    void operator()(left) const
+    {
+        sim_.turn_left();
+    }
+    
+    void operator()(right) const
+    {
+        sim_.turn_right();
+    }
+    
+    void operator()(if_food_ahead const & c) const
+    {
+        boost::apply_visitor( *this, c.get(sim_.food_in_front()));
+    }
+
+    template<int NodeCount>
+    void operator()(prog<NodeCount> const & b) const
+    {
+        for(auto const & n: b.nodes)
+            boost::apply_visitor( *this, n );
+    }
+    
+private:
+    ant_example::ant_simulation & sim_;
+    struct ant
+    {
+        
+};
+
+}
 //[ant_move_test
 bool ant_move_test()
 {
@@ -55,8 +286,69 @@ bool ant_move_test()
 
 
 
+
 int main( int argc , char *argv[] )
 {
+    
+    //if( m , p2( r , p2( if( if( m , r ) , p3( l , l , if( m , r ) ) ) , m ) ) )
+    {
+        using namespace n;
+        auto a = ant_nodes{ 
+            if_food_ahead{ 
+                move{}
+                , prog<2>{ 
+                    right{}, 
+                    prog<2>{
+                        if_food_ahead{
+                            if_food_ahead{
+                                move{}, 
+                                right{}
+                            },
+                            prog<3>{
+                                left{},
+                                left{},
+                                if_food_ahead{
+                                    move{}, 
+                                    right{}
+                                }
+                            },
+                        },
+                        move{}
+                    }
+                }
+            }
+        }; 
+        
+        prog<0> t;
+        
+        char const * def = "m r m ? l l p3 r m ? ? p2 r p2 m ?";
+        
+        std::istringstream os{def};
+        std::vector<std::string> token;
+        std::copy(std::istream_iterator<std::string>{os}, std::istream_iterator<std::string>{}, std::back_inserter(token));;
+        auto riter = token.rbegin();
+        auto a2 = n::factory(riter);
+        
+        
+        
+        std::cout << boost::apply_visitor(printer<std::string>{}, a) << "\n";
+        std::cout << boost::apply_visitor(RPNPrinter<std::string>{}, a) << "\n";
+        std::cout << boost::apply_visitor(RPNPrinter<std::string>{}, a2) << "\n";
+        using namespace ant_example;
+        board const b{ santa_fe::x_size, santa_fe::y_size };
+        int const max_steps { 400 };
+        ant_simulation::food_trail_type santa_fe_trail { santa_fe::make_santa_fe_trail( b ) };
+        ant_simulation                  ant_sim_santa_fe{ santa_fe_trail, b.get_size_x(), b.get_size_y(), { 0, 0 }, east, max_steps };
+        std::cout << ant_sim_santa_fe.score() << "\n";
+        
+        while(!ant_sim_santa_fe.is_finsh())
+        {
+            boost::apply_visitor(calculator{ant_sim_santa_fe}, a2);
+        }
+        std::cout << ant_sim_santa_fe.score() << "\n";
+        return 0;
+    }
+    
     using namespace ant_example;
     using rng_type = std::mt19937;
     std::random_device rd;
