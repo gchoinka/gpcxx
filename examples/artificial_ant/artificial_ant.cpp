@@ -31,62 +31,166 @@
 #include <boost/variant.hpp>
 #include <boost/mpl/for_each.hpp>
 #include <array>
+#include <string_view>
 
 #include <fstream>
 
-namespace n
+
+namespace genp
+{
+    class GenPException : public std::runtime_error
+    {
+    public:
+        using std::runtime_error::runtime_error;
+    };
+    
+    namespace detail
+    {
+        template<typename VariantType, typename Iter>
+        VariantType factory_imp(Iter &);
+
+        template<typename VariantType, typename Iter>
+        using FactoryMap = std::unordered_map<std::string, std::function<VariantType(Iter &)>>;
+
+        
+        template<typename VariantType, typename Iter>
+        struct FactoryMapInsertHelper 
+        {
+            FactoryMap<VariantType, Iter> & factoryMap; 
+            
+            template<class T> 
+            void operator()(T) 
+            {
+                factoryMap[T::name] = [](Iter & tokenIter) 
+                {
+                    T ret;
+                    for(auto & n: ret.nodes)
+                        n = factory_imp<VariantType>(++tokenIter);
+                    return ret; 
+                };
+            }
+        };
+
+        template<typename VariantType, typename Iter>
+        FactoryMap<VariantType, Iter> makeFactoryMap()
+        {
+            FactoryMap<VariantType, Iter> factoryMap;
+            auto insertHelper = FactoryMapInsertHelper<VariantType, Iter>{factoryMap};
+            boost::mpl::for_each<typename VariantType::types>(insertHelper);
+            return factoryMap;
+        }
+
+        template<typename VariantType, typename Iter>
+        VariantType factory_imp(Iter & tokenIter)
+        {
+            static auto nodeCreateFunMap = makeFactoryMap<VariantType, Iter>();
+            auto token = *tokenIter;
+            if(!nodeCreateFunMap.count(token))
+            {
+                throw GenPException{std::string{"cant find factory function for token >>"} + token + "<<"};
+            }
+                
+            return nodeCreateFunMap[token](tokenIter);
+        }
+    }
+
+
+    template<typename VariantType, typename Iter>
+    VariantType factory(Iter tokenIter)
+    {
+        return detail::factory_imp<VariantType>(tokenIter);
+    }
+
+
+    template<typename StringT>
+    struct Printer : public boost::static_visitor<StringT>
+    {    
+        template<typename T>
+        StringT operator()(T const & b) const
+        {
+            char const * delimiter = "";
+            char const * begin_delimiter = "";
+            char const * end_delimiter = "";
+            StringT children;
+            for(auto const & n: b.nodes)
+            {
+                children += delimiter + boost::apply_visitor( *this, n );
+                delimiter = ", ";
+                begin_delimiter = "(";
+                end_delimiter = ")";
+            }
+            return StringT{T::name} + begin_delimiter + children + end_delimiter;
+        }
+    };
+
+    template<typename StringT>
+    struct RPNPrinter : public boost::static_visitor<StringT>
+    {
+        template<typename T>
+        StringT operator()(T const & b) const
+        {
+            StringT children;
+            for(auto const & n: b.nodes)
+            {
+                children = boost::apply_visitor( *this, n ) + " " + children;
+            }
+            return children + T::name;
+        }
+    };
+    
+    template<char ... ch> 
+    struct NodeToken
+    {
+        constexpr static char name[] = {ch..., '\0'};
+    };
+    
+    template<typename VariantType, int NodeCount, typename CTString>
+    struct BaseNode : public CTString
+    {
+        template<typename ... Args>
+        BaseNode(Args && ... args):nodes{std::forward<Args>(args)...}{}
+            
+        std::array<VariantType, NodeCount> nodes;
+    };
+}
+
+namespace simple_ant
 {
     
 struct move;
 struct right;
 struct left;
 struct if_food_ahead;
-template<int nodeCount> struct prog;
+template<int nodeCount, typename CTString> struct prog;
+
+using prog2 = prog<2, genp::NodeToken<'p','2'>>;
+using prog3 = prog<3, genp::NodeToken<'p','3'>>;
 
 using ant_nodes = boost::variant<
     boost::recursive_wrapper<move>, 
     boost::recursive_wrapper<left>, 
     boost::recursive_wrapper<right>, 
     boost::recursive_wrapper<if_food_ahead>, 
-    boost::recursive_wrapper<prog<2>>, 
-    boost::recursive_wrapper<prog<3>>
+    boost::recursive_wrapper<prog2>, 
+    boost::recursive_wrapper<prog3>
 >;
 
 
-
-template<int NodeCount>
-struct prog
+template<int NodeCount, typename CTString>
+struct prog : public genp::BaseNode<ant_nodes, NodeCount, CTString>
 {
-    constexpr static std::array<char const * const, 4> CountToName{"", "", "p2", "p3"}; 
-    
-    constexpr static auto name = CountToName[NodeCount]; 
-    
-    template<typename ... Args>
-    prog(Args && ... args)
-        :nodes{std::forward<Args>(args)...}{}
-    std::array<ant_nodes, NodeCount> nodes;
+    using prog::BaseNode::BaseNode;
 };
 
-struct move : public prog<0>
-{
-    constexpr static auto name = "m";
-    
-};
+struct move : public genp::BaseNode<ant_nodes, 0, genp::NodeToken<'m'>> {};
 
-struct right : public prog<0>
-{
-    constexpr static auto name = "r";    
-};
+struct right : public genp::BaseNode<ant_nodes, 0, genp::NodeToken<'r'>>{};
 
-struct left : public prog<0>
-{
-    constexpr static auto name = "l";   
-};
+struct left : public genp::BaseNode<ant_nodes, 0, genp::NodeToken<'l'>>{};
 
-struct if_food_ahead : public prog<2>
+struct if_food_ahead : public genp::BaseNode<ant_nodes, 2, genp::NodeToken<'?'>>
 {
-    constexpr static auto name = "?";  
-    using prog<2>::prog;
+    using if_food_ahead::BaseNode::BaseNode;
 
     constexpr ant_nodes const & get(bool b) const
     {
@@ -96,131 +200,9 @@ struct if_food_ahead : public prog<2>
     template<bool c>
     constexpr ant_nodes const & get() const
     {
-        return nodes[c?0:1];
+        return nodes[c ? 0 : 1];
     }
 };
-
-namespace detail
-{
-    template<typename Iter>
-    ant_nodes factory_imp(Iter &);
-
-    template<typename Iter>
-    using FactoryMap = std::unordered_map<std::string, std::function<ant_nodes(Iter &)>>;
-
-    
-    template<typename Iter>
-    struct InsertHelper 
-    {
-        FactoryMap<Iter> & factoryMap; 
-        
-        template<class T> 
-        void operator()(T) 
-        {
-            factoryMap[T::name] = [](Iter & tokenIter) 
-            {
-                T ret;
-                for(auto & n: ret.nodes)
-                    n = factory_imp(++tokenIter);
-                return ret; 
-            };
-        }
-    };
-
-    template<typename Iter>
-    FactoryMap<Iter> makeFactoryMap()
-    {
-        FactoryMap<Iter> factoryMap;
-        auto insertHelper = InsertHelper<Iter>{factoryMap};
-        boost::mpl::for_each<ant_nodes::types>(insertHelper);
-        return factoryMap;
-    }
-
-    template<typename Iter>
-    ant_nodes factory_imp(Iter & tokenIter)
-    {
-        static auto nodeCreateFunMap = makeFactoryMap<Iter>();
-        return nodeCreateFunMap[*tokenIter](tokenIter);
-    }
-}
-
-
-template<typename Iter>
-ant_nodes factory(Iter tokenIter)
-{
-    return detail::factory_imp(tokenIter);
-}
-
-
-template<typename StringT>
-struct printer : public boost::static_visitor<StringT>
-{
-public:
-    
-    template<typename T>
-    StringT operator()(T const & b) const
-    {
-        char const * delimiter = "";
-        char const * begin_delimiter = "";
-        char const * end_delimiter = "";
-        StringT children;
-        for(auto const & n: b.nodes)
-        {
-            children += delimiter + boost::apply_visitor( *this, n );
-            delimiter = ", ";
-            begin_delimiter = "(";
-            end_delimiter = ")";
-        }
-        return StringT{T::name} + begin_delimiter + children + end_delimiter;
-    }
-};
-
-template<typename StringT>
-struct RPNPrinter : public boost::static_visitor<StringT>
-{
-    template<typename T>
-    StringT operator()(T const & b) const
-    {
-        StringT children;
-        for(auto const & n: b.nodes)
-        {
-            children = boost::apply_visitor( *this, n ) + " " + children;
-        }
-        return children + T::name;
-    }
-};
-
-using cordinate = struct{ int x,y; }; 
-
-bool operator==(cordinate const & lhs, cordinate const & rhs)
-{
-        return lhs.x == rhs.x && lhs.y == rhs.y;
-}
-
-struct direction
-{
-    static constexpr cordinate north{1,0};
-    static constexpr cordinate east{0,1};
-    static constexpr cordinate south{-1,0};
-    static constexpr cordinate west{0,-1};
-    
-    static cordinate rotateLeft(cordinate c)
-    {
-        if(c == north) return west;
-        if(c == west) return south;
-        if(c == south) return east;
-        if(c == east) return north;
-    }
-    
-    static cordinate rotateRight(cordinate c)
-    {
-        if(c == north) return east;
-        if(c == east) return south;
-        if(c == south) return west;
-        if(c == west) return north;
-    }
-};
-
 
 
 
@@ -229,7 +211,6 @@ class calculator : public boost::static_visitor<void>
 public:
     calculator(ant_example::ant_simulation & sim):sim_{sim} {} 
 
-    
     void operator()(move) const
     {
         sim_.move();
@@ -250,8 +231,8 @@ public:
         boost::apply_visitor( *this, c.get(sim_.food_in_front()));
     }
 
-    template<int NodeCount>
-    void operator()(prog<NodeCount> const & b) const
+    template<int NodeCount, typename CTString>
+    void operator()(prog<NodeCount, CTString> const & b) const
     {
         for(auto const & n: b.nodes)
             boost::apply_visitor( *this, n );
@@ -259,8 +240,6 @@ public:
     
 private:
     ant_example::ant_simulation & sim_;
-    struct ant
-    {
         
 };
 
@@ -285,6 +264,58 @@ bool ant_move_test()
 //]
 
 
+        class token_iterator
+        {
+            std::string_view sv_;
+            std::string_view::const_iterator currentPos_;
+            
+        public:
+            token_iterator(std::string_view sv):sv_{sv}
+            {
+                currentPos_ = sv_.end();
+                --currentPos_;
+                for(; currentPos_ > sv_.begin(); --currentPos_)
+                {
+                    if(*currentPos_ == ' ')
+                    {
+                        currentPos_++;
+                        break;
+                    }
+                }
+            }
+            std::string operator*()
+            {
+                auto endIter = currentPos_ + 1;
+                for(; endIter != sv_.end(); ++endIter)
+                {
+                    if(*endIter == ' ')
+                    {
+                        break;
+                    }
+                }
+                return std::string{sv_.substr(currentPos_ - sv_.begin(), endIter - currentPos_)};
+            }
+            
+            token_iterator& operator++()
+            {
+                
+                --currentPos_ ;
+                if(currentPos_ > sv_.begin())
+                {
+                    --currentPos_ ;
+                    for(; currentPos_ > sv_.begin(); --currentPos_)
+                    {
+                        if(*currentPos_ == ' ')
+                        {
+                            ++currentPos_;
+                            break;
+                        }
+                    }
+                }
+                return *this;
+            }
+            
+        };
 
 
 int main( int argc , char *argv[] )
@@ -292,19 +323,19 @@ int main( int argc , char *argv[] )
     
     //if( m , p2( r , p2( if( if( m , r ) , p3( l , l , if( m , r ) ) ) , m ) ) )
     {
-        using namespace n;
+        using namespace simple_ant;
         auto a = ant_nodes{ 
             if_food_ahead{ 
                 move{}
-                , prog<2>{ 
+                , prog2{ 
                     right{}, 
-                    prog<2>{
+                    prog2{
                         if_food_ahead{
                             if_food_ahead{
                                 move{}, 
                                 right{}
                             },
-                            prog<3>{
+                            prog3{
                                 left{},
                                 left{},
                                 if_food_ahead{
@@ -318,22 +349,26 @@ int main( int argc , char *argv[] )
                 }
             }
         }; 
-        
-        prog<0> t;
-        
+                
         char const * def = "m r m ? l l p3 r m ? ? p2 r p2 m ?";
         
-        std::istringstream os{def};
-        std::vector<std::string> token;
-        std::copy(std::istream_iterator<std::string>{os}, std::istream_iterator<std::string>{}, std::back_inserter(token));;
-        auto riter = token.rbegin();
-        auto a2 = n::factory(riter);
+        try
+        {
+            auto a2 = genp::factory<ant_nodes>(token_iterator{def});
+            std::cout << boost::apply_visitor(genp::RPNPrinter<std::string>{}, a2) << "\n";
+        }
+        catch(genp::GenPException const & exp)
+        {
+            std::cerr << exp.what() << "\n";
+        }
+
+
         
         
         
-        std::cout << boost::apply_visitor(printer<std::string>{}, a) << "\n";
-        std::cout << boost::apply_visitor(RPNPrinter<std::string>{}, a) << "\n";
-        std::cout << boost::apply_visitor(RPNPrinter<std::string>{}, a2) << "\n";
+        std::cout << boost::apply_visitor(genp::Printer<std::string>{}, a) << "\n";
+        std::cout << boost::apply_visitor(genp::RPNPrinter<std::string>{}, a) << "\n";
+
         using namespace ant_example;
         board const b{ santa_fe::x_size, santa_fe::y_size };
         int const max_steps { 400 };
@@ -343,7 +378,7 @@ int main( int argc , char *argv[] )
         
         while(!ant_sim_santa_fe.is_finsh())
         {
-            boost::apply_visitor(calculator{ant_sim_santa_fe}, a2);
+            boost::apply_visitor(calculator{ant_sim_santa_fe}, a);
         }
         std::cout << ant_sim_santa_fe.score() << "\n";
         return 0;
