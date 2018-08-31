@@ -12,6 +12,7 @@
 #include "simulation.hpp"
 #include "nodes.hpp"
 #include "santa_fe_trail.hpp"
+#include <gpm/gpm.hpp>
 
 #include <gpcxx/app.hpp>
 #include <gpcxx/evolve.hpp>
@@ -28,131 +29,10 @@
 #include <iterator>
 #include <unordered_set>
 #include <chrono>
-#include <boost/variant.hpp>
-#include <boost/mpl/for_each.hpp>
 #include <array>
 #include <string_view>
-
 #include <fstream>
 
-
-namespace genp
-{
-    class GenPException : public std::runtime_error
-    {
-    public:
-        using std::runtime_error::runtime_error;
-    };
-    
-    namespace detail
-    {
-        template<typename VariantType, typename Iter>
-        VariantType factory_imp(Iter &);
-
-        template<typename VariantType, typename Iter>
-        using FactoryMap = std::unordered_map<std::string, std::function<VariantType(Iter &)>>;
-
-        
-        template<typename VariantType, typename Iter>
-        struct FactoryMapInsertHelper 
-        {
-            FactoryMap<VariantType, Iter> & factoryMap; 
-            
-            template<class T> 
-            void operator()(T) 
-            {
-                factoryMap[T::name] = [](Iter & tokenIter) 
-                {
-                    T ret;
-                    for(auto & n: ret.nodes)
-                        n = factory_imp<VariantType>(++tokenIter);
-                    return ret; 
-                };
-            }
-        };
-
-        template<typename VariantType, typename Iter>
-        FactoryMap<VariantType, Iter> makeFactoryMap()
-        {
-            FactoryMap<VariantType, Iter> factoryMap;
-            auto insertHelper = FactoryMapInsertHelper<VariantType, Iter>{factoryMap};
-            boost::mpl::for_each<typename VariantType::types>(insertHelper);
-            return factoryMap;
-        }
-
-        template<typename VariantType, typename Iter>
-        VariantType factory_imp(Iter & tokenIter)
-        {
-            static auto nodeCreateFunMap = makeFactoryMap<VariantType, Iter>();
-            auto token = *tokenIter;
-            if(!nodeCreateFunMap.count(token))
-            {
-                throw GenPException{std::string{"cant find factory function for token >>"} + token + "<<"};
-            }
-                
-            return nodeCreateFunMap[token](tokenIter);
-        }
-    }
-
-
-    template<typename VariantType, typename Iter>
-    VariantType factory(Iter tokenIter)
-    {
-        return detail::factory_imp<VariantType>(tokenIter);
-    }
-
-
-    template<typename StringT>
-    struct Printer : public boost::static_visitor<StringT>
-    {    
-        template<typename T>
-        StringT operator()(T const & b) const
-        {
-            char const * delimiter = "";
-            char const * begin_delimiter = "";
-            char const * end_delimiter = "";
-            StringT children;
-            for(auto const & n: b.nodes)
-            {
-                children += delimiter + boost::apply_visitor( *this, n );
-                delimiter = ", ";
-                begin_delimiter = "(";
-                end_delimiter = ")";
-            }
-            return StringT{T::name} + begin_delimiter + children + end_delimiter;
-        }
-    };
-
-    template<typename StringT>
-    struct RPNPrinter : public boost::static_visitor<StringT>
-    {
-        template<typename T>
-        StringT operator()(T const & b) const
-        {
-            StringT children;
-            for(auto const & n: b.nodes)
-            {
-                children = boost::apply_visitor( *this, n ) + " " + children;
-            }
-            return children + T::name;
-        }
-    };
-    
-    template<char ... ch> 
-    struct NodeToken
-    {
-        constexpr static char name[] = {ch..., '\0'};
-    };
-    
-    template<typename VariantType, int NodeCount, typename CTString>
-    struct BaseNode : public CTString
-    {
-        template<typename ... Args>
-        BaseNode(Args && ... args):nodes{std::forward<Args>(args)...}{}
-            
-        std::array<VariantType, NodeCount> nodes;
-    };
-}
 
 namespace simple_ant
 {
@@ -163,8 +43,8 @@ struct left;
 struct if_food_ahead;
 template<int nodeCount, typename CTString> struct prog;
 
-using prog2 = prog<2, genp::NodeToken<'p','2'>>;
-using prog3 = prog<3, genp::NodeToken<'p','3'>>;
+using prog2 = prog<2, gpm::NodeToken<'p','2'>>;
+using prog3 = prog<3, gpm::NodeToken<'p','3'>>;
 
 using ant_nodes = boost::variant<
     boost::recursive_wrapper<move>, 
@@ -177,18 +57,18 @@ using ant_nodes = boost::variant<
 
 
 template<int NodeCount, typename CTString>
-struct prog : public genp::BaseNode<ant_nodes, NodeCount, CTString>
+struct prog : public gpm::BaseNode<ant_nodes, NodeCount, CTString>
 {
     using prog::BaseNode::BaseNode;
 };
 
-struct move : public genp::BaseNode<ant_nodes, 0, genp::NodeToken<'m'>> {};
+struct move : public gpm::BaseNode<ant_nodes, 0, gpm::NodeToken<'m'>> {};
 
-struct right : public genp::BaseNode<ant_nodes, 0, genp::NodeToken<'r'>>{};
+struct right : public gpm::BaseNode<ant_nodes, 0, gpm::NodeToken<'r'>>{};
 
-struct left : public genp::BaseNode<ant_nodes, 0, genp::NodeToken<'l'>>{};
+struct left : public gpm::BaseNode<ant_nodes, 0, gpm::NodeToken<'l'>>{};
 
-struct if_food_ahead : public genp::BaseNode<ant_nodes, 2, genp::NodeToken<'?'>>
+struct if_food_ahead : public gpm::BaseNode<ant_nodes, 2, gpm::NodeToken<'i', 'f'>>
 {
     using if_food_ahead::BaseNode::BaseNode;
 
@@ -218,7 +98,7 @@ public:
     
     void operator()(left) const
     {
-        sim_.turn_left();
+        sim_.turn_left(); 
     }
     
     void operator()(right) const
@@ -238,9 +118,188 @@ public:
             boost::apply_visitor( *this, n );
     }
     
+    
 private:
     ant_example::ant_simulation & sim_;
+};
+
+struct Pos2d
+{
+    std::array<int, 2> pos;
+    
+    int & x(){ return pos[0]; }
+    int & y(){ return pos[1]; }
+
+    int x() const { return pos[0]; }
+    int y() const { return pos[1]; }
+};
+
+Pos2d operator+(Pos2d const & lhs, Pos2d const & rhs)
+{
+    return Pos2d{std::array<int, 2>{lhs.x() + rhs.x(), lhs.y() + rhs.y()}};
+}
+
+bool operator==(Pos2d const & lhs, Pos2d const & rhs)
+{
+    return lhs.pos == rhs.pos;
+}
+
+constexpr std::array<Pos2d, 4> toPos{
+    Pos2d{-1,  0},
+    Pos2d{ 0,  1},
+    Pos2d{ 1,  0},
+    Pos2d{ 0, -1}
+};
+
+constexpr std::array<char, 4> toChar{
+    'N',
+    'E',
+    'S',
+    'W',
+};
+
+enum class Direction : size_t {
+    north = 0,
+    east  = 1,
+    south = 2,
+    west  = 3
+};
+
+Direction rotateCW(Direction p)
+{
+    return static_cast<Direction>((static_cast<size_t>(p) + 1) % 4);
+}
+
+Direction rotateCCW(Direction p)
+{
+    return static_cast<Direction>((static_cast<size_t>(p) + 3) % 4);
+}
+
+
+
+
+template<int XSize, int YSize>
+class ant_sim : public boost::static_visitor<void>
+{
+private:
+    enum class BoardState { empty, food, hadFood };
+public:
+    template<typename FieldInitFunction>
+    ant_sim(int steps, int max_food, Pos2d antPos, Direction direction, FieldInitFunction fieldInitFunction)
+    :steps_{steps}, max_food_{max_food}, antPos_{antPos}, direction_{direction}
+    {
+        for(size_t x = 0; x < field_.size(); ++x)
+        {
+            for(size_t y = 0; y < field_[x].size(); ++y)
+            {
+                field_[x][y] = fieldInitFunction(x,y) ? BoardState::food : BoardState::empty;
+            }
+        }
+    } 
+
+    void operator()(move)
+    {
+        --steps_;
+        auto toadd = toPos[static_cast<size_t>(direction_)];
+        antPos_ = (antPos_ + toadd);
+        antPos_.x() = (antPos_.x() + XSize) % XSize;
+        antPos_.y() = (antPos_.y() + YSize) % YSize;
         
+        if(field_[antPos_.x()][antPos_.y()] == BoardState::food)
+        {  
+            ++foodConsumed_;
+            field_[antPos_.x()][antPos_.y()] = 2;
+        }
+    }
+    
+    void operator()(left)
+    {
+        --steps_;
+        direction_ = rotateCCW(direction_);
+    }
+    
+    void operator()(right)
+    {
+        --steps_;
+        direction_ = rotateCW(direction_);
+    }
+    
+    bool food_in_front() const
+    {
+        auto toadd = toPos[static_cast<size_t>(direction_)];
+        auto newPos = (antPos_ + toadd);
+        newPos.x() = (newPos.x() + XSize) % XSize;
+        newPos.y() = (newPos.y() + YSize) % YSize;
+        
+        return field_[newPos.x()][newPos.y()] == BoardState::food;
+    }
+        
+    void operator()(if_food_ahead const & c)
+    {
+
+        boost::apply_visitor( *this, c.get(food_in_front()));
+    }
+
+    template<int NodeCount, typename CTString>
+    void operator()(prog<NodeCount, CTString> const & b)
+    {
+        for(auto const & n: b.nodes)
+            boost::apply_visitor( *this, n );
+    }
+    
+    bool is_finsh() const
+    {
+        return steps_ <= 0 || score() == 0;
+    }
+    
+    int score() const
+    {
+        return max_food_ - foodConsumed_;
+    }
+    
+    
+    std::string getStatusLine() const 
+    {
+        std::ostringstream oss;
+        oss << "steps:" << steps_ << " score:" << score() << " fif:" << food_in_front();
+        auto s = oss.str();
+        s.insert(0, 32 - s.size(), ' ');
+        return s;
+    }
+    
+    template<typename LineSinkF>
+    void get_board_as_str(LineSinkF lineSink) const
+    {
+        lineSink(getStatusLine());
+        for( size_t x = 0; x < field_.size() ; ++x)
+        {
+            std::ostringstream oss;
+            for( size_t y = 0; y < field_.size(); ++y)
+            {
+                if( antPos_ == Pos2d{int(x),int(y)})
+                    oss << toChar[ static_cast<size_t>(direction_)] ;
+                else 
+                {
+                    if(field_[x][y] == BoardState::empty)
+                        oss << ' ';
+                    else if(field_[x][y] == BoardState::food)
+                        oss << '0';
+                    else
+                        oss << '*';
+                }
+            }
+            lineSink(oss.str());
+        }
+    }
+    
+private:
+    
+    std::array<std::array<BoardState, YSize>, XSize> field_;
+    int steps_;
+    int max_food_;
+    int foodConsumed_ = 0;
+    Pos2d antPos_;
+    Direction direction_;
 };
 
 }
@@ -264,58 +323,6 @@ bool ant_move_test()
 //]
 
 
-        class token_iterator
-        {
-            std::string_view sv_;
-            std::string_view::const_iterator currentPos_;
-            
-        public:
-            token_iterator(std::string_view sv):sv_{sv}
-            {
-                currentPos_ = sv_.end();
-                --currentPos_;
-                for(; currentPos_ > sv_.begin(); --currentPos_)
-                {
-                    if(*currentPos_ == ' ')
-                    {
-                        currentPos_++;
-                        break;
-                    }
-                }
-            }
-            std::string operator*()
-            {
-                auto endIter = currentPos_ + 1;
-                for(; endIter != sv_.end(); ++endIter)
-                {
-                    if(*endIter == ' ')
-                    {
-                        break;
-                    }
-                }
-                return std::string{sv_.substr(currentPos_ - sv_.begin(), endIter - currentPos_)};
-            }
-            
-            token_iterator& operator++()
-            {
-                
-                --currentPos_ ;
-                if(currentPos_ > sv_.begin())
-                {
-                    --currentPos_ ;
-                    for(; currentPos_ > sv_.begin(); --currentPos_)
-                    {
-                        if(*currentPos_ == ' ')
-                        {
-                            ++currentPos_;
-                            break;
-                        }
-                    }
-                }
-                return *this;
-            }
-            
-        };
 
 
 int main( int argc , char *argv[] )
@@ -350,38 +357,68 @@ int main( int argc , char *argv[] )
             }
         }; 
                 
-        char const * def = "m r m ? l l p3 r m ? ? p2 r p2 m ?";
-        
-        try
-        {
-            auto a2 = genp::factory<ant_nodes>(token_iterator{def});
-            std::cout << boost::apply_visitor(genp::RPNPrinter<std::string>{}, a2) << "\n";
-        }
-        catch(genp::GenPException const & exp)
-        {
-            std::cerr << exp.what() << "\n";
-        }
+        char const * def = "m r m if l l p3 r m if if p2 r p2 m if";
+//         char const * def2 = "p3 l p2 if l if l p2 m l p2 if l p2 r m m m";
+//         
+//         try
+//         {
+//             auto a2 = gpm::factory<ant_nodes>(gpm::RPNToken_iterator{def});
+//             auto a3 = gpm::factory<ant_nodes>(gpm::PNToken_iterator{def2});
+//             std::cout << boost::apply_visitor(gpm::RPNPrinter<std::string>{}, a2) << "\n";
+//             std::cout << boost::apply_visitor(gpm::RPNPrinter<std::string>{}, a3) << "\n";
+//         }
+//         catch(gpm::GPMException const & exp)
+//         {
+//             std::cerr << exp.what() << "\n";
+//         }
 
 
         
         
         
-        std::cout << boost::apply_visitor(genp::Printer<std::string>{}, a) << "\n";
-        std::cout << boost::apply_visitor(genp::RPNPrinter<std::string>{}, a) << "\n";
+        //std::cout << boost::apply_visitor(gpm::Printer<std::string>{}, a) << "\n";
+        //std::cout << boost::apply_visitor(gpm::RPNPrinter<std::string>{}, a) << "\n";
 
         using namespace ant_example;
         board const b{ santa_fe::x_size, santa_fe::y_size };
         int const max_steps { 400 };
         ant_simulation::food_trail_type santa_fe_trail { santa_fe::make_santa_fe_trail( b ) };
         ant_simulation                  ant_sim_santa_fe{ santa_fe_trail, b.get_size_x(), b.get_size_y(), { 0, 0 }, east, max_steps };
-        std::cout << ant_sim_santa_fe.score() << "\n";
+
+        auto a2 = gpm::factory<ant_nodes>(gpm::RPNToken_iterator{def});
         
-        while(!ant_sim_santa_fe.is_finsh())
         {
-            boost::apply_visitor(calculator{ant_sim_santa_fe}, a);
+            auto sim = ant_simulation{ santa_fe_trail, b.get_size_x(), b.get_size_y(), { 0, 0 }, east, max_steps };
+            auto calc = simple_ant::calculator{sim};
+            
+            auto calc2 = simple_ant::ant_sim<santa_fe::x_size, santa_fe::y_size>{
+                    max_steps,
+                    89,
+                    simple_ant::Pos2d{0,0}, 
+                    simple_ant::Direction::east,
+                    [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+                
+                };
+                
+            while(!sim.is_finsh())
+            {
+                std::vector<std::string> lines;
+                boost::apply_visitor(calc, a2);
+                
+                sim.get_board_as_str([&](std::string const & s){ lines.push_back(s); } );
+                
+                boost::apply_visitor(calc2, a2);
+                
+                auto iter = lines.begin();
+                calc2.get_board_as_str([&](std::string const & s){ *iter = *iter + "                " + s; ++iter; } );
+                
+                for(auto const & l: lines)
+                    std::cout << l << "\n";
+
+            }
         }
-        std::cout << ant_sim_santa_fe.score() << "\n";
-        return 0;
+
+//         return 0;
     }
     
     using namespace ant_example;
@@ -391,7 +428,7 @@ int main( int argc , char *argv[] )
     char const newl { '\n' };
 
     
-    rng.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    //rng.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());
     
     //[world_definition 
     board const b{ santa_fe::x_size, santa_fe::y_size };
@@ -500,47 +537,85 @@ int main( int argc , char *argv[] )
             return fitness_f( t , ant_sim_santa_fe ); 
         } );
         //]
+        double eval_timeGpcxx = iteration_timer.seconds();
         
+        std::vector<simple_ant::ant_nodes> populationGPM;
+        std::transform( population.begin() , population.end() , std::back_inserter(populationGPM) , [&]( tree_type const &t ) { 
+            return gpm::factory<simple_ant::ant_nodes>(gpm::PNToken_iterator{gpcxx::polish_string( t, " ")}); 
+        } );
         
-        {
-            std::ofstream fout( std::string(  "pop_" ) + std::to_string( generation ) );
-            std::vector< size_t > indices( population_size );
-            std::iota( indices.begin() , indices.end() , 0 );
-            std::sort( indices.begin() , indices.end() , [&]( size_t i , size_t j ) -> bool {
-                return fitness[i] < fitness[j]; } );
-            
-            for( size_t j=0 ; j<population_size ; ++j )
+        std::vector<int> scoresGPM(populationGPM.size(), 0);
+        iteration_timer.restart();
+
+        std::transform( populationGPM.begin() , populationGPM.end() ,  scoresGPM.begin() , [&]( simple_ant::ant_nodes const &t ) mutable{ 
+            auto sim = ant_simulation{ santa_fe_trail, b.get_size_x(), b.get_size_y(), { 0, 0 }, east, max_steps };
+            auto calc = simple_ant::calculator{sim};
+            while(!sim.is_finsh())
             {
-                size_t i = indices[j];
-                fout << j << " " << i << " "
-                     << fitness[i] << " " << population[i].root().height() << " "
-                     << gpcxx::simple( population[i] , false )
-                     << std::endl;
+                boost::apply_visitor(calc, t);
             }
-        }
-/*        
-        {
-            using namespace std;
-            std::vector< size_t > idx;
-            auto iter = gpcxx::sort_indices( fitness , idx );
-            auto best = population[ idx[0] ];
-            ant_simulation sim { santa_fe_trail, b.get_size_x(), b.get_size_y(), { 0, 0 }, east, max_steps };
-            for( size_t i=0 ; i<100 ; ++i )
+            return sim.score(); 
+        } );
+        
+        double eval_timeGPM = iteration_timer.seconds();
+        
+        std::vector<int> scoresGPM2(populationGPM.size(), 0);
+        iteration_timer.restart();
+
+        std::transform( populationGPM.begin() , populationGPM.end() ,  scoresGPM2.begin() , []( simple_ant::ant_nodes const &t ){ 
+            auto calc = simple_ant::ant_sim<santa_fe::x_size, santa_fe::y_size>{
+                max_steps,
+                89,
+                simple_ant::Pos2d{0,0}, 
+                simple_ant::Direction::east,
+                [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+            
+            };
+            while(!calc.is_finsh())
             {
-                cout << simple( best , false ) << endl << endl;
-                best.root()->eval( sim );
-                cout << sim.get_board_as_str() << endl;
-                usleep( 50 * 1000 );
+                boost::apply_visitor(calc, t);
             }
-        }*/
+            return calc.score(); 
+        } );
+        
+        double eval_timeGPM2 = iteration_timer.seconds();
+//         {
+//             std::ofstream fout( std::string(  "pop_" ) + std::to_string( generation ) );
+//             std::vector< size_t > indices( population_size );
+//             std::iota( indices.begin() , indices.end() , 0 );
+//             std::sort( indices.begin() , indices.end() , [&]( size_t i , size_t j ) -> bool {
+//                 return fitness[i] < fitness[j]; } );
+//             
+//             for( size_t j=0 ; j<population_size ; ++j )
+//             {
+//                 size_t i = indices[j];
+//                 fout << j << " " << i << " "
+//                      << fitness[i] << " " << population[i].root().height() << " "
+//                      << gpcxx::simple( population[i] , false )
+//                      << newl;
+// //                 fout << j << " " << i << " "
+// //                      << fitness[i] << " " << population[i].root().height() << " "
+// //                      << gpcxx::polish_string( population[i], " ")
+// //                      << newl;     
+// //                 auto a42 = gpm::factory<simple_ant::ant_nodes>(PNToken_iterator{gpcxx::polish_string( population[i], " ")});
+// //                 std::cout << "gpm " << boost::apply_visitor(gpm::Printer<std::string>{}, a42) << newl;
+// //                 std::cout << "gpx " << gpcxx::simple( population[i] , false ) << newl << newl;
+// //                 std::cout << "gpm " << boost::apply_visitor(gpm::PNPrinter<std::string>{}, a42) << newl;
+// //                 std::cout << "gpx " << gpcxx::polish_string( population[i], " ") << newl;
+// //                 
+//             }
+//         }
             
         
-        double eval_time = iteration_timer.seconds();
+        
         
         std::cout << gpcxx::indent( 0 ) << "Generation "    << generation << newl;
         std::cout << gpcxx::indent( 1 ) << "Evolve time "   << evolve_time << newl;
-        std::cout << gpcxx::indent( 1 ) << "Eval time "     << eval_time << newl;
+        std::cout << gpcxx::indent( 1 ) << "Eval time "     << eval_timeGpcxx << newl;
+        std::cout << gpcxx::indent( 1 ) << "Eval time "     << eval_timeGPM << newl;
+        std::cout << gpcxx::indent( 1 ) << "Eval time "     << eval_timeGPM2 << newl;
         std::cout << gpcxx::indent( 1 ) << "Best individuals\n" << gpcxx::best_individuals( population , fitness , 2 , 3 , false ) << newl;
+        std::cout << gpcxx::indent( 1 ) << "Best individuals\n" << gpcxx::best_individuals( population , scoresGPM2 , 2 , 3 , false ) << newl;
         std::cout << gpcxx::indent( 1 ) << "Statistics : "      << gpcxx::calc_population_statistics( population ) << newl << std::endl;
         
         //[breakup_conditions

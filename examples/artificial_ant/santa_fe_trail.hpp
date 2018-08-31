@@ -22,8 +22,8 @@ namespace santa_fe
 
 using namespace ant_example;
 
-size_t const x_size = 32;
-size_t const y_size = 32;
+constexpr size_t const x_size = 32;
+constexpr size_t const y_size = 32;
 //[santa_fe_trail_definition
 char const * const board1[y_size] = {
 " XXX                            ",

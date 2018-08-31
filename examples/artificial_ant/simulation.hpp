@@ -183,6 +183,44 @@ public:
         return oss.str();
     }
     
+    std::string getStatusLine() const 
+    {
+        std::ostringstream oss;
+        oss << "steps:" << m_max_steps - steps_done() << " score:" << score() << " fif:" << food_in_front();
+        auto s = oss.str();
+        s.insert(0, 32 - s.size(), ' ');
+        return s;
+    }
+    
+    template<typename LineSinkF>
+    void get_board_as_str(LineSinkF lineSink) const
+    {
+        lineSink(getStatusLine());
+        for( size_t y = 0; y < m_board.get_size_y() ; ++y)
+        {
+            std::ostringstream oss;
+            for( size_t x = 0; x < m_board.get_size_x(); ++x)
+            {
+                position_1d pos_1d = m_board.pos_2d_to_1d({x,y});
+                
+                if( m_ant.pos() == pos_1d)
+                    oss << direction_to_str( m_ant.dir() );
+                else 
+                {
+                    auto found = m_food_trail.find(pos_1d);
+                    if(found != m_food_trail.cend())
+                        if(found->second)
+                            oss << '0';
+                        else
+                            oss << '*';
+                    else
+                        oss << ' ';
+                }
+            }
+            lineSink(oss.str());
+        }
+    }
+    
     
 private:
     
