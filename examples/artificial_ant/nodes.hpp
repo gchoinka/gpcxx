@@ -39,7 +39,7 @@ struct evaluator
 {
     int operator()( tree_type const& t , context_type c ) const
     {
-        while( !c.is_finsh() ) 
+        while( !c.is_finish() ) 
         {
             t.root()->eval( c );
         }

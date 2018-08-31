@@ -51,9 +51,9 @@ public:
         m_on_every_step( *this );
     }
     
-    bool is_finsh() const
+    bool is_finish() const
     {
-        return m_ant_sim.is_finsh();
+        return m_ant_sim.is_finish();
     }
     
     int score() const

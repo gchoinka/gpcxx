@@ -55,7 +55,7 @@ void paper_tree()
 
     {
         ant_simulation ant_sim{santa_fe::make_santa_fe_trail(b), santa_fe::x_size, santa_fe::y_size, {0, 0}, east, max_steps};
-        while (!ant_sim.is_finsh())
+        while (!ant_sim.is_finish())
         {
             tree.root()->eval(ant_sim);
         }
@@ -113,7 +113,7 @@ int main( int argc , char *argv[] )
 
     {
         ant_simulation ant_sim{santa_fe::make_santa_fe_trail(b), santa_fe::x_size, santa_fe::y_size, {0, 0}, east, max_steps};
-        while (!ant_sim.is_finsh())
+        while (!ant_sim.is_finish())
         {
             tree.root()->eval(ant_sim);
         }
@@ -123,7 +123,7 @@ int main( int argc , char *argv[] )
     {
         ant_simulation ant_sim{santa_fe::make_santa_fe_trail(b), santa_fe::x_size, santa_fe::y_size, {0, 0}, east, max_steps};
 
-        while (!ant_sim.is_finsh())
+        while (!ant_sim.is_finish())
         {
             if(ant_sim.food_in_front())
             {

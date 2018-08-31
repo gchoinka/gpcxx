@@ -129,7 +129,7 @@ public:
         }
     }
     
-    bool is_finsh() const
+    bool is_finish() const
     {
         return m_food_eaten == m_food_start_count || m_ant.steps_done() >= m_max_steps;
     }

@@ -186,7 +186,7 @@ private:
 public:
     template<typename FieldInitFunction>
     ant_sim(int steps, int max_food, Pos2d antPos, Direction direction, FieldInitFunction fieldInitFunction)
-    :steps_{steps}, max_food_{max_food}, antPos_{antPos}, direction_{direction}
+        :steps_{steps}, max_food_{max_food}, antPos_{antPos}, direction_{direction}
     {
         for(size_t x = 0; x < field_.size(); ++x)
         {
@@ -208,7 +208,7 @@ public:
         if(field_[antPos_.x()][antPos_.y()] == BoardState::food)
         {  
             ++foodConsumed_;
-            field_[antPos_.x()][antPos_.y()] = 2;
+            field_[antPos_.x()][antPos_.y()] = BoardState::hadFood;
         }
     }
     
@@ -247,7 +247,7 @@ public:
             boost::apply_visitor( *this, n );
     }
     
-    bool is_finsh() const
+    bool is_finish() const
     {
         return steps_ <= 0 || score() == 0;
     }
@@ -400,7 +400,7 @@ int main( int argc , char *argv[] )
                 
                 };
                 
-            while(!sim.is_finsh())
+            while(!sim.is_finish())
             {
                 std::vector<std::string> lines;
                 boost::apply_visitor(calc, a2);
@@ -550,7 +550,7 @@ int main( int argc , char *argv[] )
         std::transform( populationGPM.begin() , populationGPM.end() ,  scoresGPM.begin() , [&]( simple_ant::ant_nodes const &t ) mutable{ 
             auto sim = ant_simulation{ santa_fe_trail, b.get_size_x(), b.get_size_y(), { 0, 0 }, east, max_steps };
             auto calc = simple_ant::calculator{sim};
-            while(!sim.is_finsh())
+            while(!sim.is_finish())
             {
                 boost::apply_visitor(calc, t);
             }
@@ -571,7 +571,7 @@ int main( int argc , char *argv[] )
                 [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
             
             };
-            while(!calc.is_finsh())
+            while(!calc.is_finish())
             {
                 boost::apply_visitor(calc, t);
             }
