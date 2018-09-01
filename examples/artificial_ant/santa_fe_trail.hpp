@@ -12,15 +12,10 @@
 #ifndef GPCXX_EXAMPLES_ARTIFICIAL_ANT_SANTA_FE_TRAIL_HPP_INCLUDED
 #define GPCXX_EXAMPLES_ARTIFICIAL_ANT_SANTA_FE_TRAIL_HPP_INCLUDED
 
-#include "board.hpp"
-#include "simulation.hpp"
-
 #include <cstddef>
 
 namespace santa_fe 
 {
-
-using namespace ant_example;
 
 constexpr size_t const x_size = 32;
 constexpr size_t const y_size = 32;
@@ -61,15 +56,6 @@ char const * const board1[y_size] = {
 };
 //]
 
-// ant_simulation::food_trail_type make_santa_fe_trail( ant_example::board b )
-// {
-//     ant_simulation::food_trail_type santa_fe_trail;
-//     for( size_t x = 0; x < santa_fe::x_size; ++x )
-//         for( size_t y = 0; y < santa_fe::y_size; ++y )
-//             if( santa_fe::board1[ y ][ x ] == 'X' )
-//                 santa_fe_trail[ b.pos_2d_to_1d( { x, y } ) ] = true;
-//     return santa_fe_trail;
-// }
 
 } // namespace santa_fe 
 

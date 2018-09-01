@@ -55,12 +55,20 @@ void paper_tree()
 
     {
 //         ant_simulation ant_sim{santa_fe::make_santa_fe_trail(b), santa_fe::x_size, santa_fe::y_size, {0, 0}, east, max_steps};
-        auto antboard_sim = ant_example::AntBoardSimulation<santa_fe::x_size, santa_fe::y_size>{
+        auto antboard_sim = ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>{
             max_steps,
             89,
             ant_sim::Pos2d{0,0}, 
             ant_sim::Direction::east,
-            [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+            [](ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>::FieldType & board){
+                for(size_t x = 0; x < board.size(); ++x)
+                {
+                    for(size_t y = 0; y < board[x].size(); ++y)
+                    {
+                        board[x][y] = santa_fe::board1[x][y] == 'X' ? BoardState::food : BoardState::empty;
+                    }
+                }
+            }
         };
         while (!antboard_sim.is_finish())
         {
@@ -114,17 +122,23 @@ int main( int argc , char *argv[] )
 
     std::ofstream("artificial_ant_fittest_individual.dot") << gpcxx::graphviz( tree , false );
 
-
-    board const b{ santa_fe::x_size, santa_fe::y_size };
     int const max_steps { 400 };
 
     {
-        auto antboard_sim = ant_example::AntBoardSimulation<santa_fe::x_size, santa_fe::y_size>{
+        auto antboard_sim = ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>{
             max_steps,
             89,
             ant_sim::Pos2d{0,0}, 
             ant_sim::Direction::east,
-            [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+            [](ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>::FieldType & board){
+                for(size_t x = 0; x < board.size(); ++x)
+                {
+                    for(size_t y = 0; y < board[x].size(); ++y)
+                    {
+                        board[x][y] = santa_fe::board1[x][y] == 'X' ? BoardState::food : BoardState::empty;
+                    }
+                }
+            }
         };
         while (!antboard_sim.is_finish())
         {
@@ -134,12 +148,20 @@ int main( int argc , char *argv[] )
     }
 
     {
-        auto antboard_sim = ant_example::AntBoardSimulation<santa_fe::x_size, santa_fe::y_size>{
+        auto antboard_sim = ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>{
             max_steps,
             89,
             ant_sim::Pos2d{0,0}, 
             ant_sim::Direction::east,
-            [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+            [](ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>::FieldType & board){
+                for(size_t x = 0; x < board.size(); ++x)
+                {
+                    for(size_t y = 0; y < board[x].size(); ++y)
+                    {
+                        board[x][y] = santa_fe::board1[x][y] == 'X' ? BoardState::food : BoardState::empty;
+                    }
+                }
+            }
         };
 
         while (!antboard_sim.is_finish())

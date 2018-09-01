@@ -183,12 +183,20 @@ ant_result ant_simulation_gp(
     char const newl { '\n' };
     
     int const max_steps { 400 };
-    auto ant_sim_santa_fe = ant_example::AntBoardSimulation<santa_fe::x_size, santa_fe::y_size>{
+    auto ant_sim_santa_fe = ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>{
             max_steps,
             89,
             ant_sim::Pos2d{0,0}, 
             ant_sim::Direction::east,
-            [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+            [](ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>::FieldType & board){
+                for(size_t x = 0; x < board.size(); ++x)
+                {
+                    for(size_t y = 0; y < board[x].size(); ++y)
+                    {
+                        board[x][y] = santa_fe::board1[x][y] == 'X' ? BoardState::food : BoardState::empty;
+                    }
+                }
+            }
         };
 
     gpcxx::uniform_symbol< node_type > terminal_gen { std::vector< node_type >{
