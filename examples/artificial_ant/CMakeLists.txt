@@ -11,5 +11,6 @@ endif()
 
 
 add_executable ( artificial_ant artificial_ant.cpp )
+add_executable ( artificial_ant_gpm artificial_ant_gpm.cpp )
 
 add_subdirectory ( detail )
