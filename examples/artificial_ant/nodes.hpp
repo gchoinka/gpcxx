@@ -26,7 +26,7 @@ namespace ant_example {
     
 //[node_types_delerations  
 size_t const max_children = 3;
-using context_type = ant_simulation;
+using context_type = AntBoardSimulation<32,32>;
 using node_return_type = void;
 using node_type = gpcxx::intrusive_nary_named_func_node< node_return_type , context_type, max_children > ;
 using tree_type = gpcxx::intrusive_tree< node_type >;
@@ -72,7 +72,7 @@ struct if_food_ahead
 {                                                                                                     
     void operator()( context_type& ant_sim , node_type const& node ) const         
     {
-        if(ant_sim.food_in_front())
+        if(ant_sim.is_food_in_front())
         {
             node.child( 0 ).eval( ant_sim );
         }
@@ -98,7 +98,7 @@ struct ant_turn_left_task_terminal
 {
     void operator()( context_type & ant_sim , node_type const& node ) const
     {
-        ant_sim.turn_left();
+        ant_sim.left();
     }
 };
 
@@ -106,7 +106,7 @@ struct ant_turn_right_task_terminal
 {
     void operator()( context_type & ant_sim , node_type const& node ) const
     {
-        ant_sim.turn_right();
+        ant_sim.right();
     }
 }; 
 //]

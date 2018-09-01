@@ -12,224 +12,117 @@
 #ifndef GPCXX_EXAMPLES_ARTIFICIAL_ANT_ANT_SIMULATION_HPP_INCLUDED
 #define GPCXX_EXAMPLES_ARTIFICIAL_ANT_ANT_SIMULATION_HPP_INCLUDED
 
-#include "board.hpp"
+#include "ant_simulation_common.hpp" 
 
-#include <unordered_map>
-#include <ostream>
-#include <sstream>
-
-
+#include <array>
+#include <string>
 
 namespace ant_example {
 
-//[ant_class    
-class ant
-{
-public:
-    
-    ant( position_1d position, direction direction )
-    : m_steps_done( 0 ) , m_position( position ),   m_direction( direction )
-    {
-    }
-    
-    void turn_left()
-    {
-        direction const lut_directions[]  = { west, north, east, south };
-        m_direction = lut_directions[ m_direction ];
-        m_steps_done++;
-    }
-    
-    void turn_right()
-    {
-        direction const lut_directions[] = { east, south, west, north };
-        m_direction = lut_directions[ m_direction ];
-        m_steps_done++;
-    }
-    
-    void move( board const & b )
-    {
-        m_position = b.move_pos( m_position, m_direction );
-        m_steps_done++;
-    }
-    
-    position_1d pos() const
-    {
-        return m_position;
-    }
-    
-    void set_pos( position_1d position )
-    {
-        m_position = position;
-    }
-    
-    direction dir() const
-    {
-        return m_direction;
-    }
-    
-    position_1d front_pos( board const & b ) const
-    {
-        return b.move_pos( m_position, m_direction );
-    }
-    
-    int steps_done() const
-    {
-        return m_steps_done;
-    }
-    
-private:
-    int         m_steps_done;
-    position_1d m_position;
-    direction   m_direction;
-};
-//]
-
 //[ant_wold
-class ant_simulation
+template<int XSize, int YSize>
+class AntBoardSimulation
 {
+private:
+    enum class BoardState { empty, food, hadFood };
+    constexpr static std::array<char, 3> boardStateToChar{' ', 'O', '*'};
+    
 public:
-    using food_trail_type = std::unordered_map< position_1d, bool >;
-    
-    ant_simulation( food_trail_type food_trail, size_t x_size, size_t y_size, position_2d start_pos, direction start_direction, int max_steps )
-    : m_food_trail{ food_trail }, 
-      m_food_start_count( food_trail.size() ), 
-      m_food_eaten( 0 ),
-      m_ant{ 0 , start_direction }, 
-      m_board{ x_size, y_size },
-      m_max_steps( max_steps )
+    template<typename FieldInitFunction>
+    AntBoardSimulation(int steps, int max_food, ant_sim::Pos2d antPos, ant_sim::Direction direction, FieldInitFunction fieldInitFunction)
+        :steps_{steps}, max_food_{max_food}, antPos_{antPos}, direction_{direction}
     {
-        m_ant.set_pos( m_board.pos_2d_to_1d( start_pos ) );
-    }
-    
-    bool food_in_front() const
-    {
-        position_1d front_pos = m_ant.front_pos( m_board );
-        auto found = m_food_trail.find( front_pos );
-        return found != m_food_trail.end() && found->second;
-    }
-    
-    void turn_left()
-    {
-        m_ant.turn_left();
-    }
-    
-    void turn_right()
-    {
-        m_ant.turn_right();
-    }
-    
+        for(size_t x = 0; x < field_.size(); ++x)
+        {
+            for(size_t y = 0; y < field_[x].size(); ++y)
+            {
+                field_[x][y] = fieldInitFunction(x,y) ? BoardState::food : BoardState::empty;
+            }
+        }
+    } 
+
     void move()
     {
-        m_ant.move( m_board );
-        auto on_food = m_food_trail.find( m_ant.pos() );
-        if(on_food != m_food_trail.end() && on_food->second)
-        {
-            m_food_eaten++;
-            on_food->second = false;
+        --steps_;
+        auto toadd = ant_sim::toPos[static_cast<size_t>(direction_)];
+        antPos_ = (antPos_ + toadd);
+        antPos_.x() = (antPos_.x() + XSize) % XSize;
+        antPos_.y() = (antPos_.y() + YSize) % YSize;
+        
+        if(field_[antPos_.x()][antPos_.y()] == BoardState::food)
+        {  
+            ++foodConsumed_;
+            field_[antPos_.x()][antPos_.y()] = BoardState::hadFood;
         }
+    }
+    
+    void left()
+    {
+        --steps_;
+        direction_ = rotateCCW(direction_);
+    }
+    
+    void right()
+    {
+        --steps_;
+        direction_ = rotateCW(direction_);
+    }
+    
+    bool is_food_in_front() const
+    {
+        auto toadd = ant_sim::toPos[static_cast<size_t>(direction_)];
+        auto newPos = antPos_ + toadd;
+        newPos.x() = (newPos.x() + XSize) % XSize;
+        newPos.y() = (newPos.y() + YSize) % YSize;
+        
+        return field_[newPos.x()][newPos.y()] == BoardState::food;
     }
     
     bool is_finish() const
     {
-        return m_food_eaten == m_food_start_count || m_ant.steps_done() >= m_max_steps;
+        return steps_ <= 0 || score() == 0;
     }
     
     int score() const
     {
-        return m_food_start_count - m_food_eaten;
-    }
-
-    int steps_done() const
-    {
-        return m_ant.steps_done();
-    }
-
-    position_2d ant_position() const
-    {
-        return m_board.pos_1d_to_2d( m_ant.pos() );
-    }
-
-    direction ant_direction() const
-    {
-        return m_ant.dir();
+        return max_food_ - foodConsumed_;
     }
     
-    std::string get_board_as_str() const
+    std::string get_status_line() const 
     {
-        std::ostringstream oss;
-
-        for( size_t y = 0; y < m_board.get_size_y() ; ++y)
-        {
-            for( size_t x = 0; x < m_board.get_size_x(); ++x)
-            {
-                position_1d pos_1d = m_board.pos_2d_to_1d({x,y});
-                
-                if( m_ant.pos() == pos_1d)
-                    oss << direction_to_str( m_ant.dir() );
-                else 
-                {
-                    auto found = m_food_trail.find(pos_1d);
-                    if(found != m_food_trail.cend())
-                        if(found->second)
-                            oss << '0';
-                        else
-                            oss << '*';
-                    else
-                        oss << ' ';
-                }
-            }
-            oss << "\n";
-        }
-        return oss.str();
-    }
-    
-    std::string getStatusLine() const 
-    {
-        std::ostringstream oss;
-        oss << "steps:" << m_max_steps - steps_done() << " score:" << score() << " fif:" << food_in_front();
-        auto s = oss.str();
-        s.insert(0, 32 - s.size(), ' ');
-        return s;
+        std::string res;
+        res.reserve(YSize);
+        (((res += "steps:") += std::to_string(steps_) += " score:") += std::to_string(score()) += " fif:") += std::to_string(is_food_in_front());
+        res.insert(res.size(), YSize - res.size(), ' ');
+        return res;
     }
     
     template<typename LineSinkF>
     void get_board_as_str(LineSinkF lineSink) const
     {
-        lineSink(getStatusLine());
-        for( size_t y = 0; y < m_board.get_size_y() ; ++y)
+        lineSink(get_status_line());
+        for(size_t x = 0; x < field_.size() ; ++x)
         {
-            std::ostringstream oss;
-            for( size_t x = 0; x < m_board.get_size_x(); ++x)
+            std::string res; res.reserve(YSize);
+            for(size_t y = 0; y < field_.size(); ++y)
             {
-                position_1d pos_1d = m_board.pos_2d_to_1d({x,y});
-                
-                if( m_ant.pos() == pos_1d)
-                    oss << direction_to_str( m_ant.dir() );
+                if(antPos_ == ant_sim::Pos2d{int(x),int(y)})
+                    res += ant_sim::directionToChar[static_cast<size_t>(direction_)];
                 else 
-                {
-                    auto found = m_food_trail.find(pos_1d);
-                    if(found != m_food_trail.cend())
-                        if(found->second)
-                            oss << '0';
-                        else
-                            oss << '*';
-                    else
-                        oss << ' ';
-                }
+                    res += boardStateToChar[static_cast<size_t>(field_[x][y])];
             }
-            lineSink(oss.str());
+            lineSink(res);
         }
     }
     
-    
 private:
     
-    food_trail_type m_food_trail;
-    int const       m_food_start_count;
-    int             m_food_eaten;
-    ant             m_ant;
-    board const     m_board;
-    int const       m_max_steps;
+    std::array<std::array<BoardState, YSize>, XSize> field_;
+    int steps_;
+    int max_food_;
+    int foodConsumed_ = 0;
+    ant_sim::Pos2d antPos_;
+    ant_sim::Direction direction_;
 };
 //]
 

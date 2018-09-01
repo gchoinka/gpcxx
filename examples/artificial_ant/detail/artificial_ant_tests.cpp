@@ -50,16 +50,23 @@ void paper_tree()
     tree_type tree;
     gpcxx::read_polish( koza2 , tree , mapper );
 
-    board const b{ santa_fe::x_size, santa_fe::y_size };
+//     board const b{ santa_fe::x_size, santa_fe::y_size };
     int const max_steps { 400 };
 
     {
-        ant_simulation ant_sim{santa_fe::make_santa_fe_trail(b), santa_fe::x_size, santa_fe::y_size, {0, 0}, east, max_steps};
-        while (!ant_sim.is_finish())
+//         ant_simulation ant_sim{santa_fe::make_santa_fe_trail(b), santa_fe::x_size, santa_fe::y_size, {0, 0}, east, max_steps};
+        auto antboard_sim = ant_example::AntBoardSimulation<santa_fe::x_size, santa_fe::y_size>{
+            max_steps,
+            89,
+            ant_sim::Pos2d{0,0}, 
+            ant_sim::Direction::east,
+            [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+        };
+        while (!antboard_sim.is_finish())
         {
-            tree.root()->eval(ant_sim);
+            tree.root()->eval(antboard_sim);
         }
-        std::cout << "Koza2:" <<  ant_sim.score() << "\n";
+        std::cout << "Koza2:" <<  antboard_sim.score() << "\n";
     }
 
 }
@@ -112,74 +119,86 @@ int main( int argc , char *argv[] )
     int const max_steps { 400 };
 
     {
-        ant_simulation ant_sim{santa_fe::make_santa_fe_trail(b), santa_fe::x_size, santa_fe::y_size, {0, 0}, east, max_steps};
-        while (!ant_sim.is_finish())
+        auto antboard_sim = ant_example::AntBoardSimulation<santa_fe::x_size, santa_fe::y_size>{
+            max_steps,
+            89,
+            ant_sim::Pos2d{0,0}, 
+            ant_sim::Direction::east,
+            [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+        };
+        while (!antboard_sim.is_finish())
         {
-            tree.root()->eval(ant_sim);
+            tree.root()->eval(antboard_sim);
         }
-        std::cout << "Tree:" <<  ant_sim.score() << "\n";
+        std::cout << "Tree:" <<  antboard_sim.score() << "\n";
     }
 
     {
-        ant_simulation ant_sim{santa_fe::make_santa_fe_trail(b), santa_fe::x_size, santa_fe::y_size, {0, 0}, east, max_steps};
+        auto antboard_sim = ant_example::AntBoardSimulation<santa_fe::x_size, santa_fe::y_size>{
+            max_steps,
+            89,
+            ant_sim::Pos2d{0,0}, 
+            ant_sim::Direction::east,
+            [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+        };
 
-        while (!ant_sim.is_finish())
+        while (!antboard_sim.is_finish())
         {
-            if(ant_sim.food_in_front())
+            if(antboard_sim.is_food_in_front())
             {
-                ant_sim.move();
+                antboard_sim.move();
             }
             else
             {//PROG3
-                ant_sim.turn_left();
+                antboard_sim.left();
                 {//PROG2
-                    if(ant_sim.food_in_front())
+                    if(antboard_sim.is_food_in_front())
                     {
-                        ant_sim.move();
+                        antboard_sim.move();
                     }
                     else
                     {
-                        ant_sim.turn_right();
+                        antboard_sim.right();
                     }
                     {//PROG2
-                        ant_sim.turn_right();
+                        antboard_sim.right();
                         {//PROG2
-                            ant_sim.turn_left();
-                            ant_sim.turn_right();
+                            antboard_sim.left();
+                            antboard_sim.right();
                         }
                     }
                 }
                 {//PROG2
-                    if(ant_sim.food_in_front())
+                    if(antboard_sim.is_food_in_front())
                     {
-                        ant_sim.move();
+                        antboard_sim.move();
                     }
                     else
                     {
-                        ant_sim.turn_left();
+                        antboard_sim.left();
                     }
-                    ant_sim.move();
+                    antboard_sim.move();
                 }
             }
         }
 
-        std::cout << "Manual:" << ant_sim.score() << "\n";
+        std::cout << "Manual:" << antboard_sim.score() << "\n";
     }
 
 
     paper_tree();
 
 
-    size_t count = 0;
-    auto santa_fe_trail = santa_fe::make_santa_fe_trail(b);
-    for( size_t y = 0; y < santa_fe::y_size; ++y){
-        for( size_t x = 0; x < santa_fe::x_size; ++x){
-            count += santa_fe_trail[ b.pos_2d_to_1d( { x, y} ) ];
-            std::cout << (santa_fe_trail[ b.pos_2d_to_1d( { x, y} ) ] ? 'X' : ' ');
-        }
-        std::cout << std::endl;
-    }
-    std::cout << count;
+//     size_t count = 0;
+//     auto santa_fe_trail = santa_fe::make_santa_fe_trail(b);
+//     for( size_t y = 0; y < santa_fe::y_size; ++y){
+//         for( size_t x = 0; x < santa_fe::x_size; ++x){
+//             count += santa_fe_trail[ b.pos_2d_to_1d( { x, y} ) ];
+//             std::cout << (santa_fe_trail[ b.pos_2d_to_1d( { x, y} ) ] ? 'X' : ' ');
+//         }
+//         std::cout << std::endl;
+//     }
+//     std::cout << count;
 
 
 }

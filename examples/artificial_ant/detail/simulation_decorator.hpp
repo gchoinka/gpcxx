@@ -27,9 +27,9 @@ public:
     {
     }
     
-    bool food_in_front() const
+    bool is_food_in_front() const
     {
-        return m_ant_sim.food_in_front();
+        return m_ant_sim.is_food_in_front();
     }
     
     

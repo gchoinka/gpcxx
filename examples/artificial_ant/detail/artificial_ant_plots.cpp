@@ -182,10 +182,14 @@ ant_result ant_simulation_gp(
     using namespace ant_example;
     char const newl { '\n' };
     
-    board const b{ santa_fe::x_size, santa_fe::y_size };
     int const max_steps { 400 };
-    ant_simulation::food_trail_type const santa_fe_trail { santa_fe::make_santa_fe_trail( b ) };
-    ant_simulation const                  ant_sim_santa_fe{ santa_fe_trail, b.get_size_x(), b.get_size_y(), { 0, 0 }, east, max_steps };
+    auto ant_sim_santa_fe = ant_example::AntBoardSimulation<santa_fe::x_size, santa_fe::y_size>{
+            max_steps,
+            89,
+            ant_sim::Pos2d{0,0}, 
+            ant_sim::Direction::east,
+            [](int x, int y){ return santa_fe::board1[x][y] == 'X';}
+        };
 
     gpcxx::uniform_symbol< node_type > terminal_gen { std::vector< node_type >{
         node_type { ant_move_task_terminal{} ,          "m" } ,
