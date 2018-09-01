@@ -36,7 +36,7 @@ public:
     {
         fieldInitFunction(field_);
     } 
-
+    
     void move()
     {
         --steps_;
@@ -120,15 +120,24 @@ public:
     {
         return std::size(field_);
     }
-    
+    friend bool operator==(AntBoardSimulation const & lhs, AntBoardSimulation const & rhs)
+    {
+        return lhs.field_ == rhs.field_ 
+                && lhs.steps_ == rhs.steps_ 
+                && lhs.max_food_ == rhs.max_food_ 
+                && lhs.foodConsumed_ == rhs.foodConsumed_
+                && lhs.antPos_ == rhs.antPos_
+                && lhs.direction_ == rhs.direction_;
+    }
 private:
     FieldT field_;
-    int steps_;
+    int steps_ = 0;
     int max_food_;
     int foodConsumed_ = 0;
     ant_sim::Pos2d antPos_;
     ant_sim::Direction direction_;
 };
+
 
 
 template<int XSize, int YSize>

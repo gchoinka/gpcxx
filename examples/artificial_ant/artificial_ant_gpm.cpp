@@ -57,6 +57,8 @@ using ant_nodes = boost::variant<
 >;
 
 
+
+
 template<int NodeCount, typename CTString>
 struct prog : public gpm::BaseNode<ant_nodes, NodeCount, CTString>
 {
@@ -162,7 +164,7 @@ int main( int argc , char *argv[] )
             }
         }; 
                 
-        char const * optAndRPNdef = "m r m if l l p3 r m if if p2 r p2 m if";
+        char const * optimalAntRPNdef = "m r m if l l p3 r m if if p2 r p2 m if";
 //         char const * def2 = "p3 l p2 if l if l p2 m l p2 if l p2 r m m m";
 //         
 //         try
@@ -188,7 +190,7 @@ int main( int argc , char *argv[] )
         int const max_steps { 400 };
 
 
-        auto optAnt = gpm::factory<ant_nodes>(gpm::RPNToken_iterator{optAndRPNdef});
+        auto optAnt = gpm::factory<ant_nodes>(gpm::RPNToken_iterator{optimalAntRPNdef});
         
         {
             auto antBoardSimulation = ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>{
@@ -220,8 +222,8 @@ int main( int argc , char *argv[] )
 //                     *iter = *iter + "                " + s; 
 //                     ++iter; 
 //                 });
-                for(auto const & l: lines)
-                    std::cout << l << "\n";
+//                 for(auto const & l: lines)
+//                     std::cout << l << "\n";
 
             }
         }
@@ -314,8 +316,6 @@ int main( int argc , char *argv[] )
         }
         if ( unique_init_population.size() != population_size )
             throw gpcxx::gpcxx_exception( "Could not create unique population with the requested size" );
-        //population = population_type{ std::make_move_iterator( begin( unique_init_population ) ) , std::make_move_iterator( end( unique_init_population ) ) };
-        //std::make_move_iterator( begin( ... ) ) clang 3.6 does have an issue with this https://llvm.org/bugs/show_bug.cgi?id=19917
         population = population_type{ begin( unique_init_population ) , end( unique_init_population ) };
     }
     //]
@@ -335,6 +335,23 @@ int main( int argc , char *argv[] )
     evolver.reproduction_function() = gpcxx::make_reproduce( gpcxx::make_tournament_selector( rng , tournament_size ) );
     //]
     
+    fitness_type fitnessGPM(population_size, 0);
+    auto antBoardSim = ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>{
+        max_steps,
+        89,
+        ant_sim::Pos2d{0,0}, 
+        ant_sim::Direction::east,
+        [](ant_example::AntBoardSimulationStaticSize<santa_fe::x_size, santa_fe::y_size>::FieldType & board){
+            for(size_t x = 0; x < board.size(); ++x)
+            {
+                for(size_t y = 0; y < board[x].size(); ++y)
+                {
+                    board[x][y] = santa_fe::board1[x][y] == 'X' ? BoardState::food : BoardState::empty;
+                }
+            }
+        }
+    };
+
     //[fitness_defintion
     evaluator       fitness_f;
     fitness_type    fitness( population_size , 0.0 );
@@ -361,64 +378,53 @@ int main( int argc , char *argv[] )
         
         std::vector<simple_ant::ant_nodes> populationGPM;
         std::transform( population.begin() , population.end() , std::back_inserter(populationGPM) , [&]( tree_type const &t ) { 
-            return gpm::factory<simple_ant::ant_nodes>(gpm::PNToken_iterator{gpcxx::polish_string( t, " ")}); 
+            return gpm::factory<simple_ant::ant_nodes>(gpm::PNToken_iterator{gpcxx::polish_string(t, " ")}); 
         } );
         
-        std::vector<int> scoresGPM(populationGPM.size(), 0);
+
+        auto fitnessGPMFunction = [](simple_ant::ant_nodes const &t, auto antBoardSim)
+        {
+            auto antBoardSimulationVisitor = simple_ant::AntBoardSimulationVisitor{antBoardSim};
+            while(!antBoardSim.is_finish())
+            {
+                boost::apply_visitor(antBoardSimulationVisitor, t);
+            }
+            return antBoardSim.score();
+        };
         iteration_timer.restart();
-/*
-        std::transform( populationGPM.begin() , populationGPM.end() ,  scoresGPM.begin() , [&]( simple_ant::ant_nodes const &t ) mutable{ 
-            auto antBoardSim = ant_example::AntBoardSimulationStaticSizeX32Y32<santa_fe::x_size, santa_fe::y_size>{
-                max_steps,
-                89,
-                ant_sim::Pos2d{0,0}, 
-                ant_sim::Direction::east,
-                [](ant_example::AntBoardSimulationStaticSizeX32Y32<santa_fe::x_size, santa_fe::y_size>::FieldType & board){
-                    for(size_t x = 0; x < board.size(); ++x)
-                    {
-                        for(size_t y = 0; y < board[x].size(); ++y)
-                        {
-                            board[x][y] = santa_fe::board1[x][y] == 'X' ? BoardState::food : BoardState::empty;
-                        }
-                    }
-                }
-            };
-            auto antBoardSimulationVisitor = simple_ant::AntBoardSimulationVisitor{antBoardSim};
-            while(!antBoardSim.is_finish())
-            {
-                boost::apply_visitor(antBoardSimulationVisitor, t);
-            }
-            return antBoardSim.score(); 
-        } );*/
-        
-        std::transform( populationGPM.begin() , populationGPM.end() ,  scoresGPM.begin() , [&]( simple_ant::ant_nodes const &t ) mutable{ 
-            auto antBoardSim = ant_example::AntBoardSimulation<std::vector<std::vector<ant_example::BoardState>>>{
-                max_steps,
-                89,
-                ant_sim::Pos2d{0,0}, 
-                ant_sim::Direction::east,
-                [](auto & board){
-                    board.resize(santa_fe::x_size);
-                    for(size_t x = 0; x < board.size(); ++x)
-                    {
-                        board[x].resize(santa_fe::x_size);
-                        for(size_t y = 0; y < board[x].size(); ++y)
-                        {
-                            board[x][y] = santa_fe::board1[x][y] == 'X' ? BoardState::food : BoardState::empty;
-                        }
-                    }
-                }
-            };
-            auto antBoardSimulationVisitor = simple_ant::AntBoardSimulationVisitor{antBoardSim};
-            while(!antBoardSim.is_finish())
-            {
-                boost::apply_visitor(antBoardSimulationVisitor, t);
-            }
-            return antBoardSim.score(); 
+        std::transform( populationGPM.begin() , populationGPM.end() ,  fitnessGPM.begin() , [&]( simple_ant::ant_nodes const &t ) { 
+            return fitnessGPMFunction(t, antBoardSim) ; 
         } );
-        
-        
         double eval_timeGPM = iteration_timer.seconds();
+        
+//         std::transform( populationGPM.begin() , populationGPM.end() ,  scoresGPM.begin() , [&]( simple_ant::ant_nodes const &t ) mutable{ 
+//             auto antBoardSim = ant_example::AntBoardSimulation<std::vector<std::vector<ant_example::BoardState>>>{
+//                 max_steps,
+//                 89,
+//                 ant_sim::Pos2d{0,0}, 
+//                 ant_sim::Direction::east,
+//                 [](auto & board){
+//                     board.resize(santa_fe::x_size);
+//                     for(size_t x = 0; x < board.size(); ++x)
+//                     {
+//                         board[x].resize(santa_fe::x_size);
+//                         for(size_t y = 0; y < board[x].size(); ++y)
+//                         {
+//                             board[x][y] = santa_fe::board1[x][y] == 'X' ? BoardState::food : BoardState::empty;
+//                         }
+//                     }
+//                 }
+//             };
+//             auto antBoardSimulationVisitor = simple_ant::AntBoardSimulationVisitor{antBoardSim};
+//             while(!antBoardSim.is_finish())
+//             {
+//                 boost::apply_visitor(antBoardSimulationVisitor, t);
+//             }
+//             return antBoardSim.score(); 
+//         } );
+        
+        
+        
         
 //         std::vector<int> scoresGPM2(populationGPM.size(), 0);
 //         iteration_timer.restart();
@@ -475,7 +481,7 @@ int main( int argc , char *argv[] )
         std::cout << gpcxx::indent( 1 ) << "Eval time "     << eval_timeGPM << newl;
 
         std::cout << gpcxx::indent( 1 ) << "Best individuals\n" << gpcxx::best_individuals( population , fitness , 2 , 3 , false ) << newl;
-        std::cout << gpcxx::indent( 1 ) << "Best individuals\n" << gpcxx::best_individuals( population , scoresGPM , 2 , 3 , false ) << newl;
+        std::cout << gpcxx::indent( 1 ) << "Best individuals\n" << gpcxx::best_individuals( population , fitnessGPM , 2 , 3 , false ) << newl;
         std::cout << gpcxx::indent( 1 ) << "Statistics : "      << gpcxx::calc_population_statistics( population ) << newl << std::endl;
         
         //[breakup_conditions
