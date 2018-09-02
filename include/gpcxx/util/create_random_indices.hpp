@@ -16,7 +16,9 @@ void create_random_indices( IndexContainer &idx , size_t N , size_t n )
 {
     idx.resize( N );
     for( size_t i = 0 ; i < N ; ++i ) idx[i];
-    std::random_shuffle( idx.begin() , idx.end() );
+    std::random_device rng;
+    std::mt19937 urng(rng());
+    std::shuffle(idx.begin(), idx.end(), urng);
     idx.resize( n );
 }
 
