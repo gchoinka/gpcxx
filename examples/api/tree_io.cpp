@@ -13,6 +13,7 @@
 #include <gpcxx/io.hpp>
 
 #include <iostream>
+#include <string>
 
 using namespace std;
 using namespace gpcxx;
