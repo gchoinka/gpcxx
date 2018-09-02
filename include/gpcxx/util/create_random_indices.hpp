@@ -8,6 +8,7 @@
 #define GPCXX_UTIL_CREATE_RANDOM_INDICES_HPP_INCLUDED
 
 #include <algorithm>
+#include <random>
 
 namespace gpcxx {
 
