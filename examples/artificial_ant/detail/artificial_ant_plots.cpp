@@ -37,6 +37,7 @@ using namespace boost::accumulators;
 #include <algorithm>
 #include <tuple>
 #include <cmath>
+#include <unordered_map>
 
 using rng_type = std::mt19937;
 
