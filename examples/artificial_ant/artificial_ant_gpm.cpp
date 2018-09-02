@@ -122,15 +122,14 @@ public:
             boost::apply_visitor( *this, n );
     }
     
-    
 private:
     AntBoardSimType & sim_;
 };
 
 
+
+
 }
-
-
 
 int main( int argc , char *argv[] )
 {
@@ -357,6 +356,16 @@ int main( int argc , char *argv[] )
     fitness_type    fitness( population_size , 0.0 );
     //]
     
+    auto fitnessGPMFunction = [](simple_ant::ant_nodes const &t, auto antBoardSim)
+    {
+        auto antBoardSimulationVisitor = simple_ant::AntBoardSimulationVisitor{antBoardSim};
+        while(!antBoardSim.is_finish())
+        {
+            boost::apply_visitor(antBoardSimulationVisitor, t);
+        }
+        return antBoardSim.score();
+    };
+    
     //[generation_loop
     gpcxx::timer overall_timer; 
     bool    has_optimal_fitness { false };
@@ -368,34 +377,25 @@ int main( int argc , char *argv[] )
             evolver.next_generation( population , fitness );
         double evolve_time { iteration_timer.seconds() };
         
-        iteration_timer.restart();
-        //[fitness_calculation
-        std::transform( population.begin() , population.end() , fitness.begin() , [&]( tree_type const &t ) { 
-            return fitness_f( t , ant_sim_santa_fe ); 
-        } );
-        //]
-        double eval_timeGpcxx = iteration_timer.seconds();
+        
         
         std::vector<simple_ant::ant_nodes> populationGPM;
         std::transform( population.begin() , population.end() , std::back_inserter(populationGPM) , [&]( tree_type const &t ) { 
             return gpm::factory<simple_ant::ant_nodes>(gpm::PNToken_iterator{gpcxx::polish_string(t, " ")}); 
         } );
         
-
-        auto fitnessGPMFunction = [](simple_ant::ant_nodes const &t, auto antBoardSim)
-        {
-            auto antBoardSimulationVisitor = simple_ant::AntBoardSimulationVisitor{antBoardSim};
-            while(!antBoardSim.is_finish())
-            {
-                boost::apply_visitor(antBoardSimulationVisitor, t);
-            }
-            return antBoardSim.score();
-        };
         iteration_timer.restart();
-        std::transform( populationGPM.begin() , populationGPM.end() ,  fitnessGPM.begin() , [&]( simple_ant::ant_nodes const &t ) { 
+        std::transform( populationGPM.begin() , populationGPM.end() ,  fitnessGPM.begin() , [&]( simple_ant::ant_nodes const &t ) mutable{ 
             return fitnessGPMFunction(t, antBoardSim) ; 
         } );
         double eval_timeGPM = iteration_timer.seconds();
+        
+        iteration_timer.restart();
+        std::transform( population.begin() , population.end() ,  fitness.begin() , [&]( tree_type const &t ) mutable{ 
+            return fitness_f(t, ant_sim_santa_fe) ; 
+        } );
+        double eval_timeGpcxx = iteration_timer.seconds();
+        
         
 //         std::transform( populationGPM.begin() , populationGPM.end() ,  scoresGPM.begin() , [&]( simple_ant::ant_nodes const &t ) mutable{ 
 //             auto antBoardSim = ant_example::AntBoardSimulation<std::vector<std::vector<ant_example::BoardState>>>{

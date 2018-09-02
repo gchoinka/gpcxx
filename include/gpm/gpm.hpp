@@ -7,6 +7,7 @@
 #include <boost/variant.hpp>
 #include <boost/mpl/for_each.hpp>
 #include <string_view>
+#include <random>
 
 
 namespace gpm
@@ -74,6 +75,28 @@ namespace gpm
         return detail::factory_imp<VariantType>(tokenIter);
     }
 
+    
+    template<typename VariantType>
+    class BasicGenerator
+    {
+    public:
+        BasicGenerator(int minHeight, int maxHeight, unsigned int rndSeed = 5489u)
+            :minHeight_{minHeight}, maxHeight_{maxHeight}, rnd_{rndSeed}
+        {
+        }
+        
+        VariantType operator()()
+        {
+            return VariantType{};
+        }
+        
+
+    private:
+        int minHeight_;
+        int maxHeight_;
+        std::mt19937 rnd_;
+        std::uniform_int_distribution<> rnd_dis_;
+    };
 
     template<typename StringT>
     struct Printer : public boost::static_visitor<StringT>
